@@ -12,35 +12,27 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-slate-50 relative">
-      {/* Ambient background glow */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-brand-200/40 rounded-full blur-3xl" style={{ animation: 'pulse-glow 8s ease-in-out infinite' }} />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-accent-400/20 rounded-full blur-3xl" style={{ animation: 'pulse-glow 10s ease-in-out infinite 3s' }} />
-      </div>
-
-      <nav className="glass sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 group">
-            <span className="w-9 h-9 bg-gradient-to-br from-brand-500 to-accent-500 rounded-xl flex items-center justify-center text-white text-sm font-extrabold shadow-md group-hover:scale-110 transition-transform">
-              S
-            </span>
-            <span className="text-xl font-extrabold text-slate-800 tracking-tight">
-              Split<span className="gradient-text">Ease</span>
+            <span className="text-xl font-extrabold text-slate-900 tracking-tight">
+              SplitEase
             </span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {user?.avatar_url ? (
-              <img src={user.avatar_url} alt="" className="w-9 h-9 rounded-full ring-2 ring-brand-200 shadow-sm" />
+              <img src={user.avatar_url} alt="" className="w-8 h-8 rounded-full ring-1 ring-slate-200 shadow-sm" />
             ) : (
-              <span className="w-9 h-9 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold ring-2 ring-brand-200">
+              <span className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold ring-1 ring-slate-200">
                 {user?.name?.charAt(0)}
               </span>
             )}
-            <span className="font-semibold text-slate-600 hidden md:block">{user?.name}</span>
+            <span className="font-bold text-sm text-slate-700 hidden md:block">{user?.name}</span>
+            <div className="w-px h-5 bg-slate-200 mx-1 hidden md:block"></div>
             <button
               onClick={handleLogout}
-              className="ml-1 px-3.5 py-1.5 text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-lg shadow-sm hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all"
+              className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors"
             >
               Logout
             </button>
@@ -48,7 +40,7 @@ export default function Layout() {
         </div>
       </nav>
 
-      <main className="max-w-5xl mx-auto px-6 py-10">
+      <main className="max-w-6xl mx-auto px-6 py-10">
         <Outlet />
       </main>
     </div>

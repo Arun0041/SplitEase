@@ -62,23 +62,23 @@ export default function ImportCSV() {
 
   return (
     <div style={{ animation: 'slide-up 0.4s ease-out' }}>
-      <button onClick={() => navigate(`/groups/${id}`)} className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-600 hover:text-brand-700 mb-6 transition-colors">
+      <button onClick={() => navigate(`/groups/${id}`)} className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-900 mb-6 transition-colors">
         ← Back to Group
       </button>
 
-      <h1 className="text-3xl font-extrabold gradient-text">Import CSV</h1>
+      <h1 className="text-3xl font-extrabold text-slate-900">Import CSV</h1>
       <p className="font-medium text-slate-500 mt-2 mb-8">Drop your spreadsheet export here. We'll automatically catch data issues.</p>
 
       {!result ? (
-        <div className="glass rounded-3xl p-10 max-w-2xl shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-2xl p-10 max-w-2xl shadow-sm">
           <div
-            className={`border-2 border-dashed rounded-2xl p-14 text-center transition-all cursor-pointer hover:bg-brand-50/50 ${
-              file ? 'border-brand-400 bg-brand-50/50' : 'border-slate-300 hover:border-brand-400'
+            className={`border-2 border-dashed rounded-xl p-14 text-center transition-all cursor-pointer hover:bg-slate-50 ${
+              file ? 'border-slate-800 bg-slate-50' : 'border-slate-300 hover:border-slate-400'
             }`}
             onClick={() => document.getElementById('csv-input').click()}
           >
-            <div className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center text-3xl shadow-md mb-4 ${
-              file ? 'bg-gradient-to-br from-brand-500 to-accent-500 text-white' : 'bg-white border border-slate-100'
+            <div className={`w-16 h-16 mx-auto rounded-xl flex items-center justify-center text-3xl shadow-sm mb-4 ${
+              file ? 'bg-slate-900 text-white' : 'bg-slate-50 border border-slate-200'
             }`}>
               {file ? '📄' : '☁️'}
             </div>
@@ -91,40 +91,40 @@ export default function ImportCSV() {
 
           <div className="mt-8 flex justify-end">
             <button onClick={handleUpload} disabled={!file || uploading}
-              className="px-6 py-3 font-bold text-white bg-gradient-to-r from-brand-600 to-brand-500 rounded-xl hover:-translate-y-0.5 disabled:opacity-30 disabled:cursor-not-allowed shadow-md hover:shadow-lg hover:shadow-brand-500/20 transition-all">
+              className="px-6 py-3 font-bold text-white bg-slate-900 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed shadow-sm hover:bg-slate-800 transition-all">
               {uploading ? 'Analyzing...' : 'Analyze Data'}
             </button>
           </div>
         </div>
       ) : (
-        <div className="glass rounded-3xl overflow-hidden shadow-sm max-w-4xl">
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm max-w-4xl">
           {/* Report header */}
-          <div className="px-8 py-6 border-b border-slate-100 bg-white/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="px-6 py-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-extrabold text-slate-800">Analysis Report</h2>
-              <p className="font-medium text-slate-500 mt-0.5">
+              <h2 className="text-lg font-extrabold text-slate-900">Analysis Report</h2>
+              <p className="font-medium text-slate-500 mt-0.5 text-sm">
                 {result.total_rows} rows processed · {result.anomaly_count} issues found
               </p>
             </div>
-            <button onClick={confirmImport} disabled={unresolvedErrors.length > 0}
-              className="px-6 py-3 font-bold text-white bg-gradient-to-r from-brand-600 to-brand-500 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed shadow-md hover:shadow-lg hover:shadow-brand-500/20 transition-all hover:-translate-y-0.5">
-              {unresolvedErrors.length > 0 ? `Fix ${unresolvedErrors.length} error(s) first` : 'Confirm Import'}
+            <button onClick={confirmImport} disabled={unresolvedErrors.length > 0 || uploading}
+              className="px-6 py-2.5 font-bold text-white bg-slate-900 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed shadow-sm hover:bg-slate-800 transition-all">
+              {unresolvedErrors.length > 0 ? `Fix ${unresolvedErrors.length} error(s) first` : uploading ? 'Importing...' : 'Confirm Import'}
             </button>
           </div>
 
           {/* Severity tabs */}
-          <div className="flex border-b border-slate-100 bg-white">
+          <div className="flex border-b border-slate-200 bg-slate-50/50">
             {['error', 'warning', 'info'].map(sev => {
               const count = anomalies.filter(a => a.severity === sev && !a.resolved).length;
               return (
                 <button key={sev} onClick={() => setActiveTab(sev)}
-                  className={`flex-1 py-4 text-sm font-bold capitalize transition-all relative ${
-                    activeTab === sev ? 'text-brand-600' : 'text-slate-400 hover:text-slate-700'
+                  className={`flex-1 py-3 text-sm font-bold capitalize transition-all relative ${
+                    activeTab === sev ? 'text-slate-900 bg-white' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
                   }`}>
                   {sev}
-                  {count > 0 && <span className={`ml-2 text-xs ${sevStyles[sev].bg} ${sevStyles[sev].text} px-2 py-0.5 rounded-full font-extrabold border ${sevStyles[sev].border}`}>{count}</span>}
+                  {count > 0 && <span className={`ml-2 text-[10px] ${sevStyles[sev].bg} ${sevStyles[sev].text} px-2 py-0.5 rounded border ${sevStyles[sev].border}`}>{count}</span>}
                   {activeTab === sev && (
-                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-gradient-to-r from-brand-500 to-accent-500 rounded-full" />
+                    <span className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900" />
                   )}
                 </button>
               );
@@ -132,7 +132,7 @@ export default function ImportCSV() {
           </div>
 
           {/* Anomaly list */}
-          <div className="p-4 bg-slate-50/50">
+          <div className="p-6 bg-white">
             {filtered.length === 0 ? (
               <div className="py-16 text-center">
                 <div className="mx-auto w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-2xl mb-4 border border-emerald-100">✓</div>
@@ -145,36 +145,36 @@ export default function ImportCSV() {
                   return (
                     <div
                       key={a.id}
-                      className="flex gap-4 p-5 bg-white border border-slate-100 rounded-xl hover:border-brand-200 hover:shadow-sm transition-all"
+                      className="flex gap-4 p-5 bg-white border border-slate-200 rounded-lg hover:border-slate-300 transition-all"
                       style={{ animation: `slide-up 0.3s ease-out ${i * 40}ms both` }}
                     >
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-extrabold shrink-0 ${sty.bg} ${sty.text} ${sty.border} border shadow-sm`}>
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-extrabold shrink-0 ${sty.bg} ${sty.text} ${sty.border} border`}>
                         {sty.icon}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-1.5">
+                        <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-1">
                           {a.anomaly_type.replace(/_/g, ' ')}
                         </p>
                         <p className="font-bold text-slate-800 leading-snug">{a.description}</p>
 
                         {a.original_data && (
-                          <pre className="mt-3 bg-slate-900 p-4 rounded-xl text-xs text-emerald-400 font-mono overflow-x-auto border border-slate-800 shadow-inner">
+                          <pre className="mt-3 bg-slate-50 p-4 rounded-lg text-xs text-slate-700 font-mono overflow-x-auto border border-slate-200">
                             {JSON.stringify(a.original_data, null, 2)}
                           </pre>
                         )}
 
                         <div className="flex flex-wrap gap-2.5 mt-4">
                           {a.suggested_action === 'skip' && (
-                            <button onClick={() => resolveAnomaly(a.id, 'reject')} className="px-4 py-2 text-xs font-bold bg-rose-50 border border-rose-200 text-rose-700 rounded-xl hover:bg-rose-100 transition-colors shadow-sm">Skip Row</button>
+                            <button onClick={() => resolveAnomaly(a.id, 'reject')} className="px-4 py-2 text-xs font-bold bg-white border border-rose-200 text-rose-700 rounded-lg hover:bg-rose-50 transition-colors shadow-sm">Skip Row</button>
                           )}
                           {a.suggested_action === 'modify' && (
                             <>
-                              <button onClick={() => resolveAnomaly(a.id, 'accept', a.suggested_value)} className="px-4 py-2 text-xs font-bold bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl shadow-sm hover:shadow-md transition-all">Accept Fix</button>
-                              <button onClick={() => resolveAnomaly(a.id, 'reject')} className="px-4 py-2 text-xs font-bold bg-slate-100 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors shadow-sm">Skip Row</button>
+                              <button onClick={() => resolveAnomaly(a.id, 'accept', a.suggested_value)} className="px-4 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg shadow-sm hover:bg-slate-800 transition-all">Accept Fix</button>
+                              <button onClick={() => resolveAnomaly(a.id, 'reject')} className="px-4 py-2 text-xs font-bold bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">Skip Row</button>
                             </>
                           )}
                           {(a.suggested_action === 'keep' || a.suggested_action === 'reclassify') && (
-                            <button onClick={() => resolveAnomaly(a.id, 'accept')} className="px-4 py-2 text-xs font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl hover:bg-emerald-100 shadow-sm transition-colors">
+                            <button onClick={() => resolveAnomaly(a.id, 'accept')} className="px-4 py-2 text-xs font-bold bg-white border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-50 shadow-sm transition-colors">
                               {a.suggested_action === 'reclassify' ? 'Reclassify as Settlement' : 'Acknowledge'}
                             </button>
                           )}

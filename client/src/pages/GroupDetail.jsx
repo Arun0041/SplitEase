@@ -25,6 +25,7 @@ export default function GroupDetail() {
   const [editGroupDesc, setEditGroupDesc] = useState('');
 
   // Expense form
+  const [expPaidBy, setExpPaidBy] = useState(user?.id || '');
   const [expDesc, setExpDesc] = useState('');
   const [expAmount, setExpAmount] = useState('');
   const [expDate, setExpDate] = useState(new Date().toISOString().split('T')[0]);
@@ -99,11 +100,11 @@ export default function GroupDetail() {
         split_type: expSplitType,
         currency: expCurrency,
         notes: expNotes,
-        paid_by: user.id
+        paid_by: expPaidBy || user.id
       });
       setShowExpenseForm(false);
       setExpDesc(''); setExpAmount(''); setExpNotes('');
-      setExpSplitType('equal'); setExpCurrency('INR');
+      setExpSplitType('equal'); setExpCurrency('INR'); setExpPaidBy(user?.id || '');
       fetchAll();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to add expense');
@@ -166,7 +167,50 @@ export default function GroupDetail() {
     }
   };
 
-  if (loading) return <div className="flex justify-center py-32"><div className="w-10 h-10 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div></div>;
+  if (loading) {
+    return (
+      <div className="animate-pulse">
+        <div className="w-32 h-4 bg-slate-200 rounded-md mb-6"></div>
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+          {/* Skeleton Header */}
+          <div className="px-6 py-6 flex justify-between items-center border-b border-slate-200">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-slate-200 rounded-lg"></div>
+              <div className="space-y-2">
+                <div className="w-48 h-6 bg-slate-200 rounded-md"></div>
+                <div className="w-32 h-4 bg-slate-200 rounded-md"></div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="w-28 h-9 bg-slate-200 rounded-lg"></div>
+              <div className="w-24 h-9 bg-slate-200 rounded-lg"></div>
+            </div>
+          </div>
+          {/* Skeleton Tabs */}
+          <div className="flex border-b border-slate-200 bg-slate-50/50 px-6 gap-6">
+            <div className="w-20 h-10 bg-slate-200 rounded-md mt-2"></div>
+            <div className="w-20 h-10 bg-slate-200 rounded-md mt-2"></div>
+            <div className="w-20 h-10 bg-slate-200 rounded-md mt-2"></div>
+          </div>
+          {/* Skeleton Content Rows */}
+          <div className="p-6 space-y-3">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="w-full h-16 bg-slate-100 rounded-lg border border-slate-200 flex items-center px-5 justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-slate-200 rounded-lg"></div>
+                  <div className="space-y-2">
+                    <div className="w-32 h-4 bg-slate-200 rounded-md"></div>
+                    <div className="w-20 h-3 bg-slate-200 rounded-md"></div>
+                  </div>
+                </div>
+                <div className="w-16 h-5 bg-slate-200 rounded-md"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!group) return <p className="text-center py-20 font-bold text-slate-400">Group not found</p>;
 
   const tabs = [
@@ -179,68 +223,65 @@ export default function GroupDetail() {
 
   return (
     <div style={{ animation: 'slide-up 0.4s ease-out' }}>
-      <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-600 hover:text-brand-700 mb-6 transition-colors">
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-900 mb-6 transition-colors">
         ← Back to Dashboard
       </Link>
 
-      <div className="glass rounded-3xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         {/* Header */}
-        <div className="px-8 py-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 bg-white/50">
-          <div className="flex items-center gap-5">
-            <div className="w-14 h-14 bg-gradient-to-br from-brand-500 to-accent-500 rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl shadow-md">
-              {group.name.charAt(0)}
-            </div>
+        <div className="px-6 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200">
+          <div className="flex items-center gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-extrabold text-slate-800">{group.name}</h1>
-                <button 
-                  onClick={() => { setEditGroupName(group.name); setEditGroupDesc(group.description || ''); setShowEditGroup(true); }}
-                  className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
-                  title="Edit Group"
-                >
-                  ⚙️
-                </button>
+                <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">{group.name}</h1>
               </div>
-              {group.description && <p className="font-medium text-slate-500 mt-0.5">{group.description}</p>}
+              {group.description && <p className="font-medium text-slate-500 mt-0.5 text-sm">{group.description}</p>}
             </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Link to={`/groups/${id}/import`} className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 text-white font-bold rounded-xl text-sm hover:-translate-y-0.5 shadow-md transition-all">
-              📄 Import CSV
+          <div className="flex gap-2 flex-wrap items-center">
+            <Link to={`/groups/${id}/import`} className="inline-flex items-center px-4 py-2 bg-slate-900 text-white font-bold rounded-lg text-sm hover:bg-slate-800 transition-colors shadow-sm">
+              Import CSV
             </Link>
-            <button onClick={() => setShowExpenseForm(true)} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:border-brand-300 hover:shadow-md transition-all">
-              + Expense
+            <button onClick={() => setShowExpenseForm(true)} className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg text-sm hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
+              Expense
             </button>
-            <button onClick={() => setShowSettlementForm(true)} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:border-emerald-300 hover:shadow-md transition-all">
-              💰 Settle
+            <button onClick={() => setShowSettlementForm(true)} className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg text-sm hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
+              Settle
+            </button>
+            <button 
+              onClick={() => { setEditGroupName(group.name); setEditGroupDesc(group.description || ''); setShowEditGroup(true); }}
+              className="p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+              title="Group Settings"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
             </button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-100 bg-white">
+        <div className="flex border-b border-slate-200 bg-slate-50/50">
           {tabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex-1 py-4 text-sm font-bold capitalize transition-all relative ${
-                tab === t.key ? 'text-brand-600' : 'text-slate-400 hover:text-slate-700'
+              className={`flex-1 py-3 text-sm font-bold capitalize transition-all relative ${
+                tab === t.key ? 'text-slate-900 bg-white' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
               }`}>
               {t.label}
               <span className="ml-1.5 text-xs opacity-60">({t.count})</span>
               {tab === t.key && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-gradient-to-r from-brand-500 to-accent-500 rounded-full" />
+                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900" />
               )}
             </button>
           ))}
         </div>
 
         {/* Content */}
-        <div className="p-6 bg-slate-50/50">
+        <div className="p-6 bg-white">
           {tab === 'expenses' && (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {expenses.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-slate-200">
-                  <p className="font-medium text-slate-400">No expenses yet.</p>
-                  <button onClick={() => setShowExpenseForm(true)} className="mt-4 px-4 py-2 font-bold text-brand-600 bg-brand-50 border border-brand-100 rounded-xl text-sm hover:bg-brand-100 transition-colors">
+                <div className="text-center py-16 bg-slate-50 rounded-xl border border-slate-200">
+                  <p className="font-medium text-slate-500">No expenses yet.</p>
+                  <button onClick={() => setShowExpenseForm(true)} className="mt-4 px-4 py-2 font-bold text-slate-700 bg-white border border-slate-300 rounded-lg text-sm hover:bg-slate-50 shadow-sm transition-colors">
                     + Add First Expense
                   </button>
                 </div>
@@ -249,19 +290,19 @@ export default function GroupDetail() {
                   const dt = new Date(e.expense_date);
                   return (
                     <div key={e.id}
-                      className="flex items-center justify-between px-5 py-4 bg-white border border-slate-100 rounded-xl hover:border-brand-200 hover:shadow-md transition-all group"
-                      style={{ animation: `slide-up 0.3s ease-out ${i * 40}ms both` }}>
+                      className="flex items-center justify-between px-5 py-3 bg-white border border-slate-200 rounded-lg hover:border-slate-400 transition-all group"
+                      style={{ animation: `slide-up 0.3s ease-out ${i * 30}ms both` }}>
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-slate-50 border border-slate-100 rounded-xl flex flex-col items-center justify-center text-xs group-hover:border-brand-200 group-hover:bg-brand-50 transition-colors">
-                          <span className="text-base font-extrabold text-slate-800">{dt.getDate()}</span>
-                          <span className="uppercase text-[10px] font-bold text-slate-400">{dt.toLocaleString('default', { month: 'short' })}</span>
+                        <div className="w-10 h-10 bg-slate-50 border border-slate-200 rounded-lg flex flex-col items-center justify-center text-xs group-hover:border-slate-300 transition-colors">
+                          <span className="text-sm font-extrabold text-slate-800">{dt.getDate()}</span>
+                          <span className="uppercase text-[9px] font-bold text-slate-500">{dt.toLocaleString('default', { month: 'short' })}</span>
                         </div>
                         <div>
-                          <p className="font-bold text-slate-800">{e.description}</p>
-                          <p className="text-sm font-medium text-slate-500 mt-0.5">
+                          <p className="font-bold text-slate-900">{e.description}</p>
+                          <p className="text-xs font-medium text-slate-500 mt-0.5">
                             Paid by <span className="font-bold text-slate-700">{e.paid_by_name}</span>
-                            <span className="ml-2 text-[10px] font-bold uppercase bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{e.split_type}</span>
-                            {e.is_settlement && <span className="ml-1 text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md border border-emerald-200">Settlement</span>}
+                            <span className="ml-2 font-bold uppercase text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">{e.split_type === 'exact' ? 'unequal' : e.split_type}</span>
+                            {e.is_settlement && <span className="ml-1 font-bold uppercase text-[9px] bg-slate-800 text-white px-1.5 py-0.5 rounded border border-slate-900">Settlement</span>}
                           </p>
                         </div>
                       </div>
@@ -282,64 +323,62 @@ export default function GroupDetail() {
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {balances.map((b, i) => (
-                  <div key={b.user_id} style={{ animation: `slide-up 0.3s ease-out ${i * 60}ms both` }}>
+                  <div key={b.user_id} style={{ animation: `slide-up 0.3s ease-out ${i * 40}ms both` }}>
                     <div
                       onClick={() => fetchBreakdown(b.user_id)}
-                      className={`flex items-center justify-between p-5 bg-white border rounded-2xl transition-all shadow-sm cursor-pointer hover:shadow-md ${
-                        b.balance > 0.01 ? 'border-l-4 border-l-emerald-400 border-slate-100' : b.balance < -0.01 ? 'border-l-4 border-l-rose-400 border-slate-100' : 'border-slate-100'
-                      } ${showBreakdown === b.user_id ? 'ring-2 ring-brand-200' : ''}`}
+                      className={`flex items-center justify-between p-4 bg-white border rounded-lg transition-all cursor-pointer hover:border-slate-400 ${
+                        b.balance > 0.01 ? 'border-l-4 border-l-emerald-500 border-slate-200' : b.balance < -0.01 ? 'border-l-4 border-l-rose-500 border-slate-200' : 'border-slate-200'
+                      } ${showBreakdown === b.user_id ? 'ring-1 ring-slate-900' : ''}`}
                     >
-                      <div className="flex items-center gap-4">
-                        <span className="w-11 h-11 rounded-full bg-gradient-to-br from-brand-100 to-brand-50 text-brand-700 flex items-center justify-center text-lg font-extrabold border border-brand-200">
+                      <div className="flex items-center gap-3">
+                        <span className="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-base font-extrabold border border-slate-200">
                           {b.name.charAt(0)}
                         </span>
                         <div>
-                          <p className="font-bold text-slate-800">{b.name}</p>
-                          <p className="text-xs font-medium text-brand-500">Click for audit trail →</p>
+                          <p className="font-bold text-slate-900">{b.name}</p>
+                          <p className="text-[10px] font-bold uppercase text-slate-400">Click for audit trail</p>
                         </div>
                       </div>
                       <div>
                         {b.balance > 0.01 ? (
-                          <span className="font-extrabold text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl text-sm">gets ₹{b.balance.toFixed(2)}</span>
+                          <span className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-md text-xs">gets ₹{b.balance.toFixed(2)}</span>
                         ) : b.balance < -0.01 ? (
-                          <span className="font-extrabold text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-xl text-sm">owes ₹{Math.abs(b.balance).toFixed(2)}</span>
+                          <span className="font-bold text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-md text-xs">owes ₹{Math.abs(b.balance).toFixed(2)}</span>
                         ) : (
-                          <span className="font-bold text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl text-sm">settled up</span>
+                          <span className="font-bold text-slate-500 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-md text-xs">settled up</span>
                         )}
                       </div>
                     </div>
 
                     {/* Rohan's Audit Trail — per-expense breakdown */}
                     {showBreakdown === b.user_id && breakdown && (
-                      <div className="mt-2 bg-white border border-slate-100 rounded-2xl p-5 shadow-sm" style={{ animation: 'slide-up 0.25s ease-out' }}>
+                      <div className="mt-2 bg-slate-50 border border-slate-200 rounded-lg p-5" style={{ animation: 'slide-up 0.2s ease-out' }}>
                         <div className="flex justify-between items-center mb-4">
-                          <h4 className="font-extrabold text-slate-800">Balance Breakdown — {b.name}</h4>
-                          <span className="text-xs font-bold bg-brand-50 text-brand-700 px-3 py-1 rounded-full border border-brand-100">
+                          <h4 className="font-extrabold text-slate-900">Balance Breakdown — {b.name}</h4>
+                          <span className="text-xs font-bold bg-slate-800 text-white px-3 py-1 rounded border border-slate-900">
                             Net: ₹{breakdown.net_balance?.toFixed(2)}
                           </span>
                         </div>
                         <div className="grid grid-cols-3 gap-3 mb-4 text-center">
-                          <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
-                            <p className="text-xs font-bold text-emerald-600 mb-1">Paid for others</p>
-                            <p className="text-lg font-extrabold text-emerald-700">₹{breakdown.total_paid_for_others?.toFixed(2)}</p>
+                          <div className="bg-white border border-emerald-100 rounded-lg p-3">
+                            <p className="text-[10px] uppercase font-bold text-emerald-600 mb-1">Paid for others</p>
+                            <p className="text-sm font-extrabold text-emerald-700">₹{breakdown.total_paid_for_others?.toFixed(2)}</p>
                           </div>
-                          <div className="bg-rose-50 border border-rose-100 rounded-xl p-3">
-                            <p className="text-xs font-bold text-rose-600 mb-1">Owes to others</p>
-                            <p className="text-lg font-extrabold text-rose-700">₹{breakdown.total_owed_to_others?.toFixed(2)}</p>
+                          <div className="bg-white border border-rose-100 rounded-lg p-3">
+                            <p className="text-[10px] uppercase font-bold text-rose-600 mb-1">Owes to others</p>
+                            <p className="text-sm font-extrabold text-rose-700">₹{breakdown.total_owed_to_others?.toFixed(2)}</p>
                           </div>
-                          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
-                            <p className="text-xs font-bold text-blue-600 mb-1">Settlements</p>
-                            <p className="text-lg font-extrabold text-blue-700">₹{breakdown.settlements_net?.toFixed(2)}</p>
+                          <div className="bg-white border border-blue-100 rounded-lg p-3">
+                            <p className="text-[10px] uppercase font-bold text-blue-600 mb-1">Settlements</p>
+                            <p className="text-sm font-extrabold text-blue-700">₹{breakdown.settlements_net?.toFixed(2)}</p>
                           </div>
                         </div>
-                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                        <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
                           {breakdown.expenses?.map(exp => (
-                            <div key={exp.expense_id} className={`flex justify-between items-center px-4 py-3 rounded-lg text-sm ${
-                              exp.type === 'paid' ? 'bg-emerald-50/50' : 'bg-rose-50/50'
-                            }`}>
+                            <div key={exp.expense_id} className={`flex justify-between items-center px-4 py-2 bg-white border border-slate-200 rounded-md text-sm`}>
                               <div>
-                                <p className="font-bold text-slate-700">{exp.description}</p>
-                                <p className="text-xs text-slate-500 mt-0.5">{exp.explanation}</p>
+                                <p className="font-bold text-slate-800">{exp.description}</p>
+                                <p className="text-[10px] text-slate-500 mt-0.5">{exp.explanation}</p>
                               </div>
                               <span className={`font-extrabold ${exp.type === 'paid' ? 'text-emerald-600' : 'text-rose-600'}`}>
                                 {exp.type === 'paid' ? '+' : '-'}₹{Math.abs(exp.net_effect).toFixed(2)}
@@ -354,14 +393,14 @@ export default function GroupDetail() {
               </div>
 
               {simplifiedDebts.length > 0 && (
-                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-7 shadow-xl">
-                  <h3 className="text-lg font-extrabold text-white mb-1">Suggested Settlements</h3>
-                  <p className="font-medium text-slate-400 mb-5 text-sm">Minimum transactions to settle all balances.</p>
-                  <div className="space-y-3">
+                <div className="bg-slate-900 rounded-xl p-6 shadow-sm">
+                  <h3 className="text-base font-extrabold text-white mb-1">Suggested Settlements</h3>
+                  <p className="font-medium text-slate-400 mb-5 text-xs">Minimum transactions to settle all balances.</p>
+                  <div className="space-y-2">
                     {simplifiedDebts.map((t, i) => (
-                      <div key={i} className="flex items-center justify-between bg-white/5 border border-white/10 px-5 py-4 rounded-xl backdrop-blur">
-                        <span className="font-bold text-slate-300">{t.from.name} <span className="text-brand-400 mx-2">→</span> {t.to.name}</span>
-                        <span className="font-extrabold text-emerald-400 tracking-tight">₹{t.amount.toFixed(2)}</span>
+                      <div key={i} className="flex items-center justify-between bg-white/10 border border-white/10 px-4 py-3 rounded-lg">
+                        <span className="font-bold text-slate-200 text-sm">{t.from.name} <span className="text-slate-500 mx-2">→</span> {t.to.name}</span>
+                        <span className="font-extrabold text-emerald-400 text-sm">₹{t.amount.toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -373,24 +412,24 @@ export default function GroupDetail() {
           {tab === 'members' && (
             <div className="space-y-3">
               <div className="flex justify-end mb-2">
-                <button onClick={() => setShowMemberForm(true)} className="px-4 py-2 font-bold text-brand-600 bg-brand-50 border border-brand-100 rounded-xl text-sm hover:bg-brand-100 transition-colors">
+                <button onClick={() => setShowMemberForm(true)} className="px-4 py-2 font-bold text-slate-700 bg-white border border-slate-300 rounded-lg text-sm hover:bg-slate-50 transition-colors shadow-sm">
                   + Add Member
                 </button>
               </div>
               {group.members.map((m, i) => (
                 <div key={m.id}
-                  className="flex items-center justify-between px-5 py-4 bg-white border border-slate-100 rounded-xl hover:border-brand-200 hover:shadow-sm transition-all"
-                  style={{ animation: `slide-up 0.3s ease-out ${i * 50}ms both` }}>
+                  className="flex items-center justify-between px-5 py-3 bg-white border border-slate-200 rounded-lg hover:border-slate-400 transition-all"
+                  style={{ animation: `slide-up 0.3s ease-out ${i * 40}ms both` }}>
                   <div className="flex items-center gap-4">
-                    <span className="w-11 h-11 rounded-full bg-gradient-to-br from-brand-100 to-brand-50 text-brand-700 flex items-center justify-center font-extrabold border border-brand-200">
+                    <span className="w-10 h-10 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center font-extrabold text-sm border border-slate-200">
                       {m.name.charAt(0)}
                     </span>
                     <div>
-                      <p className="font-bold text-slate-800">
+                      <p className="font-bold text-slate-900">
                         {m.name}
-                        {m.role === 'admin' && <span className="ml-2 text-[10px] font-extrabold uppercase bg-brand-100 text-brand-700 px-2 py-0.5 rounded-md border border-brand-200">Admin</span>}
+                        {m.role === 'admin' && <span className="ml-2 text-[9px] font-bold uppercase bg-slate-800 text-white px-1.5 py-0.5 rounded border border-slate-900">Admin</span>}
                       </p>
-                      <p className="text-sm font-medium text-slate-400">
+                      <p className="text-xs font-medium text-slate-500">
                         Joined {new Date(m.joined_at).toLocaleDateString()}
                         {m.left_at && <span className="ml-1">· Left {new Date(m.left_at).toLocaleDateString()}</span>}
                       </p>
@@ -398,11 +437,11 @@ export default function GroupDetail() {
                   </div>
                   <div className="flex items-center gap-2">
                     {m.left_at ? (
-                      <span className="text-xs font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-full border border-slate-200">Inactive</span>
+                      <span className="text-[10px] font-bold uppercase bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200">Inactive</span>
                     ) : (
                       <>
-                        <span className="text-xs font-bold bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full border border-emerald-100">Active</span>
-                        <button onClick={() => handleSetLeaveDate(m.id)} className="text-xs font-bold text-slate-400 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-all">
+                        <span className="text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-200">Active</span>
+                        <button onClick={() => handleSetLeaveDate(m.id)} className="text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 px-2 py-1 rounded transition-colors">
                           Set Leave
                         </button>
                       </>
@@ -424,23 +463,36 @@ export default function GroupDetail() {
             </div>
             <form onSubmit={handleAddExpense}>
               <div className="px-7 py-5 space-y-4 bg-slate-50/50">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Description</label>
-                  <input type="text" required value={expDesc} onChange={e => setExpDesc(e.target.value)} autoFocus
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400 transition-all shadow-sm"
-                    placeholder="e.g. Groceries BigBasket" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Description</label>
+                    <input type="text" required value={expDesc} onChange={e => setExpDesc(e.target.value)} autoFocus
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-400 transition-all shadow-sm"
+                      placeholder="e.g. Groceries" />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Paid By</label>
+                    <select value={expPaidBy} onChange={e => setExpPaidBy(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 transition-all shadow-sm">
+                      {activeMembers.map(m => (
+                        <option key={m.user_id} value={m.user_id}>
+                          {m.name} {m.user_id === user.id ? '(You)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1.5">Amount</label>
                     <input type="number" step="0.01" required value={expAmount} onChange={e => setExpAmount(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400 transition-all shadow-sm"
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-400 transition-all shadow-sm"
                       placeholder="0.00" />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1.5">Currency</label>
                     <select value={expCurrency} onChange={e => setExpCurrency(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all shadow-sm">
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 transition-all shadow-sm">
                       <option value="INR">INR (₹)</option>
                       <option value="USD">USD ($)</option>
                     </select>
@@ -450,14 +502,14 @@ export default function GroupDetail() {
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1.5">Date</label>
                     <input type="date" value={expDate} onChange={e => setExpDate(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all shadow-sm" />
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 transition-all shadow-sm" />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1.5">Split Type</label>
                     <select value={expSplitType} onChange={e => setExpSplitType(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all shadow-sm">
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 transition-all shadow-sm">
                       <option value="equal">Equal</option>
-                      <option value="exact">Exact</option>
+                      <option value="exact">Unequal</option>
                       <option value="percentage">Percentage</option>
                       <option value="shares">Shares</option>
                     </select>
@@ -466,13 +518,13 @@ export default function GroupDetail() {
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">Notes (optional)</label>
                   <input type="text" value={expNotes} onChange={e => setExpNotes(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all shadow-sm"
+                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500/30 transition-all shadow-sm"
                     placeholder="Any additional notes" />
                 </div>
               </div>
-              <div className="px-7 py-4 bg-white border-t border-slate-100 flex gap-3 justify-end">
-                <button type="button" onClick={() => setShowExpenseForm(false)} className="px-5 py-2.5 font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors text-sm">Cancel</button>
-                <button type="submit" className="px-5 py-2.5 font-bold text-white bg-gradient-to-r from-brand-600 to-brand-500 rounded-xl shadow-md text-sm transition-all">Add Expense</button>
+              <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl">
+                <button type="button" onClick={() => setShowExpenseForm(false)} className="px-4 py-2 font-bold text-slate-600 hover:text-slate-900 transition-colors text-sm">Cancel</button>
+                <button type="submit" className="px-4 py-2 font-bold text-white bg-slate-900 rounded-lg shadow-sm hover:bg-slate-800 text-sm transition-colors">Add Expense</button>
               </div>
             </form>
           </div>
@@ -519,9 +571,9 @@ export default function GroupDetail() {
                     placeholder="e.g. Settling March expenses" />
                 </div>
               </div>
-              <div className="px-7 py-4 bg-white border-t border-slate-100 flex gap-3 justify-end">
-                <button type="button" onClick={() => setShowSettlementForm(false)} className="px-5 py-2.5 font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors text-sm">Cancel</button>
-                <button type="submit" className="px-5 py-2.5 font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-xl shadow-md text-sm transition-all">Record Payment</button>
+              <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl">
+                <button type="button" onClick={() => setShowSettlementForm(false)} className="px-4 py-2 font-bold text-slate-600 hover:text-slate-900 transition-colors text-sm">Cancel</button>
+                <button type="submit" className="px-4 py-2 font-bold text-white bg-slate-900 rounded-lg shadow-sm hover:bg-slate-800 text-sm transition-colors">Record Payment</button>
               </div>
             </form>
           </div>
@@ -555,9 +607,9 @@ export default function GroupDetail() {
                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all shadow-sm" />
                 </div>
               </div>
-              <div className="px-7 py-4 bg-white border-t border-slate-100 flex gap-3 justify-end">
-                <button type="button" onClick={() => setShowMemberForm(false)} className="px-5 py-2.5 font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors text-sm">Cancel</button>
-                <button type="submit" className="px-5 py-2.5 font-bold text-white bg-gradient-to-r from-brand-600 to-brand-500 rounded-xl shadow-md text-sm transition-all">Add Member</button>
+              <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl">
+                <button type="button" onClick={() => setShowMemberForm(false)} className="px-4 py-2 font-bold text-slate-600 hover:text-slate-900 transition-colors text-sm">Cancel</button>
+                <button type="submit" className="px-4 py-2 font-bold text-white bg-slate-900 rounded-lg shadow-sm hover:bg-slate-800 text-sm transition-colors">Add Member</button>
               </div>
             </form>
           </div>
@@ -589,9 +641,9 @@ export default function GroupDetail() {
                     placeholder="What is this group for?" />
                 </div>
               </div>
-              <div className="px-7 py-4 bg-white border-t border-slate-100 flex gap-3 justify-end">
-                <button type="button" onClick={() => setShowEditGroup(false)} className="px-5 py-2.5 font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors text-sm">Cancel</button>
-                <button type="submit" className="px-5 py-2.5 font-bold text-white bg-gradient-to-r from-brand-600 to-brand-500 rounded-xl shadow-md text-sm transition-all">Save Changes</button>
+              <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl">
+                <button type="button" onClick={() => setShowEditGroup(false)} className="px-4 py-2 font-bold text-slate-600 hover:text-slate-900 transition-colors text-sm">Cancel</button>
+                <button type="submit" className="px-4 py-2 font-bold text-white bg-slate-900 rounded-lg shadow-sm hover:bg-slate-800 text-sm transition-colors">Save Changes</button>
               </div>
             </form>
           </div>

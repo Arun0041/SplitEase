@@ -12,28 +12,80 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 via-white to-accent-400/10 relative overflow-hidden px-4">
-      {/* Animated gradient orbs */}
-      <div className="absolute top-1/4 -left-20 w-72 h-72 bg-brand-300/30 rounded-full blur-3xl" style={{ animation: 'float 8s ease-in-out infinite' }} />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-accent-400/20 rounded-full blur-3xl" style={{ animation: 'float 10s ease-in-out infinite 3s' }} />
-      <div className="absolute top-10 right-1/4 w-48 h-48 bg-emerald-300/20 rounded-full blur-3xl" style={{ animation: 'float 12s ease-in-out infinite 1s' }} />
-
-      <div className="w-full max-w-sm glass rounded-3xl p-10 text-center relative shadow-xl" style={{ animation: 'slide-up 0.5s ease-out' }}>
-        <div className="relative z-10">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-brand-500 to-accent-500 rounded-2xl flex items-center justify-center shadow-lg mb-6">
-            <span className="text-2xl font-extrabold text-white">S</span>
+    <div className="h-screen w-full flex flex-col lg:flex-row bg-slate-50 overflow-hidden">
+      
+      {/* Left Section - Information */}
+      <div className="flex-1 flex flex-col justify-center px-8 lg:px-16 xl:px-24 relative h-full" style={{ animation: 'fade-in 0.6s ease-out' }}>
+        
+        <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-br from-slate-200/40 to-transparent pointer-events-none" />
+        
+        <div className="relative z-10 max-w-xl">
+          <div className="inline-flex items-center justify-center px-4 py-2 bg-slate-800 text-white font-extrabold text-lg rounded-xl mb-4 shadow-md tracking-wide">
+            SplitEase
           </div>
-
-          <h1 className="text-3xl font-extrabold gradient-text mb-2">SplitEase</h1>
-          <p className="text-sm font-medium text-slate-500 mb-10">
-            Fair and easy expense splitting for everyone.
+          <h1 className="text-3xl lg:text-4xl xl:text-5xl font-extrabold text-slate-800 tracking-tight mb-3 leading-tight">
+            The intelligent way to track shared expenses.
+          </h1>
+          <p className="text-base text-slate-500 font-medium mb-8">
+            No more messy spreadsheets. SplitEase does the heavy lifting for you.
           </p>
+
+          <div className="flex flex-col gap-6">
+            <div className="flex gap-4" style={{ animation: 'slide-up 0.4s ease-out 0.1s both' }}>
+              <div className="flex flex-col items-center">
+                <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs shrink-0 border border-slate-300">1</div>
+                <div className="w-px h-full bg-slate-200 mt-2"></div>
+              </div>
+              <div className="pb-2">
+                <h3 className="text-base font-extrabold text-slate-800 mb-1">Import your mess</h3>
+                <p className="text-slate-500 text-xs sm:text-sm font-medium leading-relaxed">
+                  Upload your existing messy spreadsheets. Our engine automatically flags duplicates, missing data, and anomalies before anything hits the database.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4" style={{ animation: 'slide-up 0.4s ease-out 0.2s both' }}>
+              <div className="flex flex-col items-center">
+                <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs shrink-0 border border-slate-300">2</div>
+                <div className="w-px h-full bg-slate-200 mt-2"></div>
+              </div>
+              <div className="pb-2">
+                <h3 className="text-base font-extrabold text-slate-800 mb-1">Multi-currency & Members</h3>
+                <p className="text-slate-500 text-xs sm:text-sm font-medium leading-relaxed">
+                  Log expenses in USD or INR. We strictly calculate splits based on who was actually living with you on the exact date the expense occurred.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4" style={{ animation: 'slide-up 0.4s ease-out 0.3s both' }}>
+              <div className="flex flex-col items-center">
+                <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs shrink-0 border border-slate-300">3</div>
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-800 mb-1">Smart Settlements</h3>
+                <p className="text-slate-500 text-xs sm:text-sm font-medium leading-relaxed">
+                  When it's time to pay up, our greedy algorithm matches debtors and creditors to ensure your group makes the fewest transactions possible.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Section - Login Box */}
+      <div className="w-full lg:w-[450px] xl:w-[500px] h-full bg-white border-l border-slate-200 flex flex-col justify-center items-center px-8 relative shadow-2xl">
+        <div className="w-full max-w-sm" style={{ animation: 'slide-up 0.5s ease-out 0.4s both' }}>
+          
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Welcome Back</h2>
+            <p className="text-slate-500 font-medium text-sm">Log in to manage your shared expenses</p>
+          </div>
 
           <button
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 py-3.5 px-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all"
+            className="w-full flex items-center justify-center gap-3 py-3.5 px-4 bg-white border-2 border-slate-100 rounded-2xl font-bold text-slate-700 hover:border-slate-300 hover:shadow-md transition-all group"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
               <path d="M5.84 14.09A6.97 6.97 0 015.49 12c0-.72.13-1.43.35-2.09V7.07H2.18A11 11 0 001 12c0 1.78.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
@@ -42,11 +94,15 @@ export default function Login() {
             Continue with Google
           </button>
 
-          <p className="mt-8 text-xs text-slate-400">
-            Secure login powered by Google OAuth 2.0
-          </p>
+          <div className="mt-6 text-center">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Secure authentication via OAuth 2.0
+            </p>
+          </div>
+
         </div>
       </div>
+
     </div>
   );
 }
