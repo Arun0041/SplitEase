@@ -1,6 +1,6 @@
 # AI Usage Log
 
-**AI Tool Used**: Gemini 3.1 Pro (via Antigravity IDE framework)
+**AI Tool Used**: Gemini 3.1 Pro and Claude Opus 4.6
 
 ## Key Prompts Used
 - "Analyze the 5 persona requirements from the problem statement and map them to technical features."

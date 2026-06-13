@@ -8,6 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchUser = async () => {
+    setLoading(true);
     const token = localStorage.getItem('token');
     if (!token) {
       setLoading(false);
@@ -30,9 +31,9 @@ export const AuthProvider = ({ children }) => {
     fetchUser();
   }, []);
 
-  const loginWithToken = (token) => {
+  const loginWithToken = async (token) => {
     localStorage.setItem('token', token);
-    fetchUser();
+    await fetchUser();
   };
 
   const logout = () => {

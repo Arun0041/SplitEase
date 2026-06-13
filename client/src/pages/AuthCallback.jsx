@@ -8,13 +8,16 @@ export default function AuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    if (token) {
-      loginWithToken(token);
-      navigate('/', { replace: true });
-    } else {
-      navigate('/login?error=no_token', { replace: true });
-    }
+    const handleCallback = async () => {
+      const token = searchParams.get('token');
+      if (token) {
+        await loginWithToken(token);
+        navigate('/', { replace: true });
+      } else {
+        navigate('/login?error=no_token', { replace: true });
+      }
+    };
+    handleCallback();
   }, [searchParams, loginWithToken, navigate]);
 
   return (
