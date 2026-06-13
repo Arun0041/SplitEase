@@ -1,279 +1,272 @@
 const { parse } = require('csv-parse/sync');
-const { query, getClient } = require('../config/db');
 
 /**
  * CSV Import Service
- *
- * This is the core of the assignment. The importer must:
- * 1. Parse the CSV regardless of format inconsistencies
- * 2. Detect at least 12 data anomalies
- * 3. Surface each anomaly to the user
- * 4. Handle each anomaly with a documented policy
- *
- * ANOMALY TYPES:
- * - duplicate          : Same expense logged twice
- * - negative_amount    : Negative amount (refund or error?)
- * - settlement_as_expense : A settlement/payment logged as regular expense
- * - currency_mismatch  : USD amount treated as INR
- * - date_format        : Inconsistent or ambiguous date format
- * - member_not_active  : Expense includes someone who wasn't in the group at that time
- * - unknown_member     : Person not recognized in the group
- * - split_mismatch     : Split amounts don't add up to total
- * - missing_field      : Required field is empty
- * - name_inconsistency : Variant spellings of a name
- * - invalid_percentage : Percentage splits don't sum to 100
- * - zero_amount        : Expense with zero amount
- * - future_date        : Expense date is in the future
- * - duplicate_conflict : Same expense logged by two people with different amounts
+ * 
+ * Parses expense CSV files and detects data problems before importing.
+ * Each problem is flagged as an "anomaly" with a severity level so the
+ * user can review and decide what to do (accept, fix, or skip).
+ * 
+ * Anomaly types we check for:
+ *  1. duplicate              – Same expense appears twice
+ *  2. duplicate_conflict     – Same event logged by two people with different amounts
+ *  3. missing_field          – A required column is blank
+ *  4. negative_amount        – Negative value (could be a refund)
+ *  5. zero_amount            – Amount is zero
+ *  6. settlement_as_expense  – A payment between people logged as an expense
+ *  7. currency_mismatch      – USD amount that needs conversion to INR
+ *  8. missing_currency       – Currency column is blank, defaulting to INR
+ *  9. date_format            – Date couldn't be parsed or is ambiguous
+ * 10. ambiguous_date         – DD/MM vs MM/DD can't be determined
+ * 11. future_date            – Expense date is in the future
+ * 12. member_not_active      – Person wasn't in the group on that date
+ * 13. unknown_member         – Person not recognised as a group member
+ * 14. name_inconsistency     – Variant spelling mapped to a known name
+ * 15. invalid_percentage     – Percentage splits don't add up to 100%
+ * 16. split_type_mismatch    – split_type and split_details contradict each other
  */
 
-// ─── Canonical name mapping ─────────────────────────────
-// Handles inconsistent naming (e.g., "rohan" vs "Rohan" vs "Rohan S.")
-function buildNameMap(rows) {
-  const nameVariants = {};
-  const allNames = new Set();
 
-  for (const row of rows) {
-    // Collect all names from payer and split columns
-    const names = extractNamesFromRow(row);
-    names.forEach(n => allNames.add(n));
-  }
+// ── Helper: Levenshtein distance for fuzzy name matching ──────────
 
-  // Known canonical names from the problem statement
-  const canonicalNames = ['Aisha', 'Rohan', 'Priya', 'Meera', 'Dev', 'Sam'];
-
-  for (const name of allNames) {
-    const normalized = name.trim().toLowerCase();
-    const match = canonicalNames.find(cn => {
-      const cnLower = cn.toLowerCase();
-      return normalized === cnLower
-        || normalized.startsWith(cnLower)
-        || cnLower.startsWith(normalized)
-        || levenshtein(normalized, cnLower) <= 2;
-    });
-
-    if (match) {
-      nameVariants[name] = match;
-    } else {
-      nameVariants[name] = name.trim(); // Keep as-is, flag as unknown
-    }
-  }
-
-  return nameVariants;
-}
-
-// Simple Levenshtein distance for fuzzy name matching
 function levenshtein(a, b) {
-  const matrix = [];
-  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+  const m = [];
+  for (let i = 0; i <= b.length; i++) m[i] = [i];
+  for (let j = 0; j <= a.length; j++) m[0][j] = j;
+
   for (let i = 1; i <= b.length; i++) {
     for (let j = 1; j <= a.length; j++) {
-      matrix[i][j] = b[i - 1] === a[j - 1]
-        ? matrix[i - 1][j - 1]
-        : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+      m[i][j] = b[i - 1] === a[j - 1]
+        ? m[i - 1][j - 1]
+        : Math.min(m[i - 1][j - 1] + 1, m[i][j - 1] + 1, m[i - 1][j] + 1);
     }
   }
-  return matrix[b.length][a.length];
+  return m[b.length][a.length];
 }
 
-// Extract all person names from a CSV row
-function extractNamesFromRow(row) {
-  const names = new Set();
-  // Payer/Paid by column
-  const payerCols = ['paid_by', 'payer', 'paid by', 'Paid By', 'Paid_By', 'PaidBy'];
-  for (const col of payerCols) {
-    if (row[col]) names.add(row[col].trim());
-  }
-  // Split-with or participants column
-  const splitCols = ['split_with', 'split with', 'Split With', 'participants', 'Participants', 'members', 'split_between', 'Split Between'];
-  for (const col of splitCols) {
-    if (row[col]) {
-      row[col].split(/[,;|]/).forEach(n => {
-        if (n.trim()) names.add(n.trim());
-      });
+
+// ── Helper: pull a value from a row using multiple possible column names ──
+
+function col(row, names) {
+  for (const name of names) {
+    if (row[name] !== undefined && row[name] !== null && String(row[name]).trim() !== '') {
+      return String(row[name]).trim();
     }
   }
-  return [...names];
-}
-
-// ─── Parse date from multiple formats ───────────────────
-function parseDate(dateStr, rowNum) {
-  if (!dateStr || dateStr.trim() === '') return { date: null, anomaly: 'missing_field' };
-
-  const cleaned = dateStr.trim();
-  const anomalies = [];
-
-  // Try multiple date formats
-  const formats = [
-    // YYYY-MM-DD (ISO)
-    { regex: /^(\d{4})-(\d{1,2})-(\d{1,2})$/, parse: (m) => new Date(m[1], m[2] - 1, m[3]) },
-    // DD/MM/YYYY
-    { regex: /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, parse: (m) => new Date(m[3], m[2] - 1, m[1]) },
-    // MM/DD/YYYY (ambiguous with DD/MM/YYYY)
-    { regex: /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, parse: (m) => new Date(m[3], m[1] - 1, m[2]), ambiguous: true },
-    // DD-MM-YYYY
-    { regex: /^(\d{1,2})-(\d{1,2})-(\d{4})$/, parse: (m) => new Date(m[3], m[2] - 1, m[1]) },
-    // DD.MM.YYYY
-    { regex: /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/, parse: (m) => new Date(m[3], m[2] - 1, m[1]) },
-    // Mon DD, YYYY (e.g., "Mar 15, 2025")
-    { regex: /^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/, parse: (m) => new Date(`${m[1]} ${m[2]}, ${m[3]}`) },
-    // DD Mon YYYY (e.g., "15 Mar 2025")
-    { regex: /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/, parse: (m) => new Date(`${m[2]} ${m[1]}, ${m[3]}`) },
-  ];
-
-  for (const fmt of formats) {
-    const match = cleaned.match(fmt.regex);
-    if (match) {
-      const date = fmt.parse(match);
-      if (!isNaN(date.getTime())) {
-        // Check for ambiguous date (could be DD/MM or MM/DD)
-        const isAmbiguous = fmt.ambiguous && parseInt(match[1]) <= 12 && parseInt(match[2]) <= 12;
-        return {
-          date: date.toISOString().split('T')[0],
-          format_detected: fmt.regex.toString(),
-          ambiguous: isAmbiguous || false
-        };
-      }
-    }
-  }
-
-  // Last resort: try native Date parser
-  const lastResort = new Date(cleaned);
-  if (!isNaN(lastResort.getTime())) {
-    return { date: lastResort.toISOString().split('T')[0], format_detected: 'native' };
-  }
-
-  return { date: null, anomaly: 'date_format', original: cleaned };
-}
-
-// ─── Parse amount, handling currency symbols ────────────
-function parseAmount(amountStr) {
-  if (!amountStr || amountStr.trim() === '') return { amount: null, currency: null, anomaly: 'missing_field' };
-
-  const cleaned = amountStr.trim();
-
-  // Detect currency
-  let currency = 'INR';
-  let numStr = cleaned;
-
-  if (cleaned.startsWith('$') || cleaned.toLowerCase().includes('usd')) {
-    currency = 'USD';
-    numStr = cleaned.replace(/[$USDusd\s]/g, '');
-  } else if (cleaned.startsWith('₹') || cleaned.toLowerCase().includes('inr')) {
-    currency = 'INR';
-    numStr = cleaned.replace(/[₹INRinr\s]/g, '');
-  }
-
-  // Remove commas and whitespace
-  numStr = numStr.replace(/[,\s]/g, '');
-
-  const amount = parseFloat(numStr);
-
-  if (isNaN(amount)) {
-    return { amount: null, currency: null, anomaly: 'missing_field', original: cleaned };
-  }
-
-  return { amount, currency, isNegative: amount < 0 };
-}
-
-// ─── Detect settlement keywords in description ─────────
-function isSettlementDescription(description) {
-  if (!description) return false;
-  const keywords = [
-    'settle', 'settled', 'settlement', 'paid back', 'payback', 'pay back',
-    'repaid', 'repay', 'repayment', 'reimbursed', 'reimbursement',
-    'transfer', 'transferred', 'return', 'returned', 'cleared', 'clearing'
-  ];
-  const lower = description.toLowerCase();
-  return keywords.some(kw => lower.includes(kw));
-}
-
-// ─── Detect duplicates ──────────────────────────────────
-function findDuplicates(parsedRows) {
-  const seen = new Map();
-  const duplicates = [];
-
-  for (let i = 0; i < parsedRows.length; i++) {
-    const row = parsedRows[i];
-    // Create a hash key based on date + description + amount + payer
-    const key = `${row.date}|${(row.description || '').toLowerCase().trim()}|${Math.abs(row.amount || 0)}|${(row.paid_by || '').toLowerCase().trim()}`;
-
-    if (seen.has(key)) {
-      duplicates.push({
-        rowIndex: i,
-        duplicateOf: seen.get(key),
-        key
-      });
-    } else {
-      seen.set(key, i);
-    }
-  }
-
-  return duplicates;
-}
-
-// ─── Find conflicting duplicates (same event, different amounts) ──
-function findConflictingDuplicates(parsedRows) {
-  const byEvent = new Map();
-  const conflicts = [];
-
-  for (let i = 0; i < parsedRows.length; i++) {
-    const row = parsedRows[i];
-    // Key by date + normalized description (ignore amount and payer)
-    const descNorm = (row.description || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-    const key = `${row.date}|${descNorm}`;
-
-    if (byEvent.has(key)) {
-      const existing = byEvent.get(key);
-      if (Math.abs((existing.amount || 0) - (row.amount || 0)) > 0.01) {
-        conflicts.push({
-          rowIndex: i,
-          conflictsWith: existing.rowIndex,
-          row1Amount: existing.amount,
-          row2Amount: row.amount
-        });
-      }
-    } else {
-      byEvent.set(key, { ...row, rowIndex: i });
-    }
-  }
-
-  return conflicts;
-}
-
-// ─── Get column name (flexible matching) ────────────────
-function getColumnValue(row, possibleNames) {
-  for (const name of possibleNames) {
-    if (row[name] !== undefined && row[name] !== null && row[name] !== '') {
-      return row[name];
-    }
-  }
-  // Also try case-insensitive
-  const rowKeys = Object.keys(row);
-  for (const name of possibleNames) {
-    const match = rowKeys.find(k => k.toLowerCase().trim() === name.toLowerCase().trim());
-    if (match && row[match] !== undefined && row[match] !== null && row[match] !== '') {
-      return row[match];
+  // try case-insensitive fallback
+  const keys = Object.keys(row);
+  for (const name of names) {
+    const match = keys.find(k => k.toLowerCase() === name.toLowerCase());
+    if (match && row[match] !== undefined && String(row[match]).trim() !== '') {
+      return String(row[match]).trim();
     }
   }
   return null;
 }
 
-// ═════════════════════════════════════════════════════════
-// MAIN IMPORT FUNCTION
-// ═════════════════════════════════════════════════════════
-async function processCSVImport(csvContent, groupId, importedBy, membershipMap) {
-  const anomalies = [];
 
-  // Step 1: Parse CSV
+// ── Helper: collect all names that appear anywhere in the CSV ──
+
+function collectNames(rows) {
+  const names = new Set();
+  for (const row of rows) {
+    const payer = col(row, ['paid_by', 'payer', 'Paid By']);
+    if (payer) names.add(payer);
+
+    const splitWith = col(row, ['split_with', 'split with', 'participants', 'members']);
+    if (splitWith) {
+      splitWith.split(/[;,|]/).forEach(n => { if (n.trim()) names.add(n.trim()); });
+    }
+  }
+  return [...names];
+}
+
+
+// ── Build a map from every name variant to a canonical name ──
+
+function buildNameMap(allNames, knownMembers) {
+  const map = {};
+  const canonical = knownMembers.length > 0 ? knownMembers : ['Aisha', 'Rohan', 'Priya', 'Meera', 'Dev', 'Sam'];
+
+  for (const name of allNames) {
+    const lower = name.toLowerCase();
+
+    // exact match
+    const exact = canonical.find(c => c.toLowerCase() === lower);
+    if (exact) { map[name] = exact; continue; }
+
+    // variant contains canonical (e.g. "Priya S" contains "Priya")
+    // but skip if it contains "friend" — "Dev's friend Kabir" should NOT map to Dev
+    if (!lower.includes('friend')) {
+      const contains = canonical.find(c => lower.includes(c.toLowerCase()) && c.length >= 3);
+      if (contains) { map[name] = contains; continue; }
+    }
+
+    // fuzzy match (edit distance <= 2)
+    const fuzzy = canonical.find(c => levenshtein(lower, c.toLowerCase()) <= 2);
+    if (fuzzy) { map[name] = fuzzy; continue; }
+
+    // no match — keep as-is (will be flagged as unknown)
+    map[name] = name;
+  }
+
+  return map;
+}
+
+
+// ── Parse a date string from many possible formats ──
+
+function parseDate(raw) {
+  if (!raw || raw.trim() === '') return { date: null, error: 'missing' };
+  const s = raw.trim();
+
+  // ISO: 2026-02-01
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) {
+    return { date: new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) };
+  }
+
+  // DD/MM/YYYY or MM/DD/YYYY — ambiguous when both parts <= 12
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) {
+    const a = +m[1], b = +m[2], year = +m[3];
+    const ambiguous = a <= 12 && b <= 12 && a !== b;
+    // Default interpretation: DD/MM/YYYY
+    return { date: new Date(Date.UTC(year, b - 1, a)), ambiguous, raw: s };
+  }
+
+  // Month-name without year: "Mar 14" → assume 2026
+  m = s.match(/^([A-Za-z]+)\s+(\d{1,2})$/);
+  if (m) {
+    const month = new Date(Date.parse(m[1] + ' 1, 2026')).getMonth();
+    if (!isNaN(month)) {
+      return { date: new Date(Date.UTC(2026, month, +m[2])) };
+    }
+  }
+
+  // Last resort: native parser
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return { date: d };
+
+  return { date: null, error: 'unparseable', raw: s };
+}
+
+function formatDate(d) {
+  return d.toISOString().split('T')[0];
+}
+
+
+// ── Parse an amount string, handling commas, currency symbols, whitespace ──
+
+function parseAmount(raw, currencyCol) {
+  if (!raw || raw.trim() === '') return { amount: null, currency: null, error: 'missing' };
+
+  let s = raw.trim();
+  let currency = (currencyCol && currencyCol.trim()) ? currencyCol.trim().toUpperCase() : null;
+
+  // Strip currency symbols
+  if (s.startsWith('$')) { currency = currency || 'USD'; s = s.slice(1); }
+  if (s.startsWith('₹')) { currency = currency || 'INR'; s = s.slice(1); }
+
+  // Remove commas and extra spaces: "1,200" → "1200", " 1450 " → "1450"
+  s = s.replace(/[,\s]/g, '');
+
+  const num = parseFloat(s);
+  if (isNaN(num)) return { amount: null, currency: null, error: 'invalid', raw };
+
+  return { amount: num, currency: currency || 'INR', currencyMissing: !currencyCol || currencyCol.trim() === '' };
+}
+
+
+// ── Check if a description looks like a settlement, not an expense ──
+
+function looksLikeSettlement(description, splitType) {
+  if (!description) return false;
+  const lower = description.toLowerCase();
+  const keywords = [
+    'paid back', 'pay back', 'payback', 'settle', 'settlement',
+    'repaid', 'repay', 'reimburs', 'deposit share', 'deposit',
+    'transfer', 'cleared', 'return'
+  ];
+  // Also suspicious: no split_type, which means it's probably a person-to-person payment
+  const hasKeyword = keywords.some(kw => lower.includes(kw));
+  const noSplitType = !splitType || splitType.trim() === '';
+  return hasKeyword || (noSplitType && lower.includes('paid'));
+}
+
+
+// ── Find exact duplicates (same date + similar description + same amount) ──
+
+function findDuplicates(rows) {
+  const seen = new Map();
+  const dupes = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    // Normalize description: remove filler words and punctuation
+    const descNorm = (r.description || '').toLowerCase()
+      .replace(/\b(at|the|for|and|in|a)\b/g, '')
+      .replace(/[^a-z0-9]/g, '');
+    const key = `${r.date}|${descNorm}|${Math.abs(r.amount || 0)}`;
+
+    if (seen.has(key)) {
+      dupes.push({ index: i, originalIndex: seen.get(key) });
+    } else {
+      seen.set(key, i);
+    }
+  }
+  return dupes;
+}
+
+
+// ── Find conflicting duplicates (same event but different amounts) ──
+
+function findConflicts(rows) {
+  const byEvent = new Map();
+  const conflicts = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r.date || !r.splitWith) continue;
+
+    const people = r.splitWith.split(/[;,|]/).map(n => n.trim().toLowerCase()).sort().join('|');
+    const key = `${r.date}|${people}`;
+
+    if (byEvent.has(key)) {
+      const prev = byEvent.get(key);
+      if (Math.abs((prev.amount || 0) - (r.amount || 0)) > 0.01) {
+        // Check descriptions share at least one meaningful word
+        const words1 = (r.description || '').toLowerCase().split(/\s+/);
+        const words2 = (prev.description || '').toLowerCase().split(/\s+/);
+        const overlap = words1.filter(w => words2.includes(w) && w.length > 3).length;
+        if (overlap > 0) {
+          conflicts.push({ index: i, otherIndex: prev.index, amt1: prev.amount, amt2: r.amount });
+        }
+      }
+    } else {
+      byEvent.set(key, { ...r, index: i });
+    }
+  }
+  return conflicts;
+}
+
+
+// ═══════════════════════════════════════════════════════
+// MAIN FUNCTION: Parse CSV + detect all anomalies
+// ═══════════════════════════════════════════════════════
+
+async function processCSVImport(csvContent, groupId, userId, membershipMap) {
+  const anomalies = [];
+  const USD_RATE = parseFloat(process.env.USD_TO_INR_RATE) || 83.0;
+
+  // ── Step 1: Parse the raw CSV ──
   let rawRows;
   try {
     rawRows = parse(csvContent, {
-      columns: true,       // Use first row as headers
+      columns: true,
       skip_empty_lines: true,
       trim: true,
-      relax_column_count: true,  // Handle inconsistent column counts
+      relax_column_count: true,
       relax_quotes: true
     });
   } catch (err) {
@@ -284,195 +277,31 @@ async function processCSVImport(csvContent, groupId, importedBy, membershipMap) 
     };
   }
 
-  // Step 2: Normalize and parse each row
-  const parsedRows = [];
+  // ── Step 2: Build name map from all names found in the CSV ──
+  const knownMembers = membershipMap ? Object.keys(membershipMap) : [];
+  const allNames = collectNames(rawRows);
+  const nameMap = buildNameMap(allNames, knownMembers);
 
-  for (let i = 0; i < rawRows.length; i++) {
-    const raw = rawRows[i];
-    const rowNum = i + 2; // +2 because row 1 is header, and 1-indexed
-
-    // Extract fields using flexible column name matching
-    const dateRaw = getColumnValue(raw, ['date', 'Date', 'DATE', 'expense_date', 'Expense Date']);
-    const descRaw = getColumnValue(raw, ['description', 'Description', 'DESC', 'desc', 'expense', 'Expense', 'item', 'Item']);
-    const amountRaw = getColumnValue(raw, ['amount', 'Amount', 'AMOUNT', 'total', 'Total']);
-    const paidByRaw = getColumnValue(raw, ['paid_by', 'Paid By', 'paid by', 'Paid_By', 'PaidBy', 'payer', 'Payer']);
-    const splitTypeRaw = getColumnValue(raw, ['split_type', 'Split Type', 'split type', 'Split_Type', 'type', 'Type']);
-    const splitWithRaw = getColumnValue(raw, ['split_with', 'Split With', 'split with', 'Split_With', 'participants', 'Participants', 'split_between', 'Split Between', 'members', 'Members']);
-    const categoryRaw = getColumnValue(raw, ['category', 'Category', 'cat', 'Cat']);
-    const notesRaw = getColumnValue(raw, ['notes', 'Notes', 'note', 'Note', 'comment', 'Comment']);
-
-    // Parse date
-    const dateResult = parseDate(dateRaw, rowNum);
-    if (dateResult.anomaly) {
-      anomalies.push({
-        row_number: rowNum,
-        anomaly_type: dateResult.anomaly === 'missing_field' ? 'missing_field' : 'date_format',
-        severity: dateResult.anomaly === 'missing_field' ? 'error' : 'warning',
-        description: dateResult.anomaly === 'missing_field'
-          ? `Row ${rowNum}: Missing date field`
-          : `Row ${rowNum}: Could not parse date "${dateResult.original}"`,
-        original_data: raw,
-        suggested_action: 'skip'
-      });
-    }
-    if (dateResult.ambiguous) {
-      anomalies.push({
-        row_number: rowNum,
-        anomaly_type: 'date_format',
-        severity: 'warning',
-        description: `Row ${rowNum}: Ambiguous date format "${dateRaw}" — interpreted as DD/MM/YYYY`,
-        original_data: raw,
-        suggested_action: 'modify',
-        suggested_value: { date: dateResult.date }
-      });
-    }
-
-    // Parse amount
-    const amountResult = parseAmount(amountRaw);
-    if (amountResult.anomaly) {
-      anomalies.push({
-        row_number: rowNum,
-        anomaly_type: 'missing_field',
-        severity: 'error',
-        description: `Row ${rowNum}: Missing or invalid amount "${amountRaw}"`,
-        original_data: raw,
-        suggested_action: 'skip'
-      });
-    }
-
-    // Check for negative amount
-    if (amountResult.isNegative) {
-      anomalies.push({
-        row_number: rowNum,
-        anomaly_type: 'negative_amount',
-        severity: 'warning',
-        description: `Row ${rowNum}: Negative amount ${amountResult.amount}. Treating as refund/credit.`,
-        original_data: raw,
-        suggested_action: 'modify',
-        suggested_value: { treat_as: 'refund', amount: Math.abs(amountResult.amount) }
-      });
-    }
-
-    // Check for zero amount
-    if (amountResult.amount === 0) {
-      anomalies.push({
-        row_number: rowNum,
-        anomaly_type: 'zero_amount',
-        severity: 'warning',
-        description: `Row ${rowNum}: Zero amount expense "${descRaw}"`,
-        original_data: raw,
-        suggested_action: 'skip'
-      });
-    }
-
-    // Check for USD currency
-    if (amountResult.currency === 'USD') {
-      anomalies.push({
-        row_number: rowNum,
-        anomaly_type: 'currency_mismatch',
-        severity: 'info',
-        description: `Row ${rowNum}: USD amount detected ($${amountResult.amount}). Will convert to INR at rate ${process.env.USD_TO_INR_RATE || 83.0}.`,
-        original_data: raw,
-        suggested_action: 'modify',
-        suggested_value: {
-          currency: 'USD',
-          exchange_rate: parseFloat(process.env.USD_TO_INR_RATE) || 83.0,
-          amount_in_inr: amountResult.amount * (parseFloat(process.env.USD_TO_INR_RATE) || 83.0)
-        }
-      });
-    }
-
-    // Check for missing description
-    if (!descRaw || descRaw.trim() === '') {
-      anomalies.push({
-        row_number: rowNum,
-        anomaly_type: 'missing_field',
-        severity: 'error',
-        description: `Row ${rowNum}: Missing description`,
-        original_data: raw,
-        suggested_action: 'skip'
-      });
-    }
-
-    // Check for missing payer
-    if (!paidByRaw || paidByRaw.trim() === '') {
-      anomalies.push({
-        row_number: rowNum,
-        anomaly_type: 'missing_field',
-        severity: 'error',
-        description: `Row ${rowNum}: Missing "Paid By" field`,
-        original_data: raw,
-        suggested_action: 'skip'
-      });
-    }
-
-    // Check for settlement keywords in description
-    if (isSettlementDescription(descRaw)) {
-      anomalies.push({
-        row_number: rowNum,
-        anomaly_type: 'settlement_as_expense',
-        severity: 'warning',
-        description: `Row ${rowNum}: "${descRaw}" looks like a settlement/payment, not an expense. Will reclassify as settlement.`,
-        original_data: raw,
-        suggested_action: 'reclassify',
-        suggested_value: { is_settlement: true }
-      });
-    }
-
-    // Check for future date
-    if (dateResult.date) {
-      const expDate = new Date(dateResult.date);
-      if (expDate > new Date()) {
-        anomalies.push({
-          row_number: rowNum,
-          anomaly_type: 'future_date',
-          severity: 'warning',
-          description: `Row ${rowNum}: Future date ${dateResult.date} for "${descRaw}"`,
-          original_data: raw,
-          suggested_action: 'keep'
-        });
-      }
-    }
-
-    // Store parsed row for further checks
-    parsedRows.push({
-      rowNum,
-      date: dateResult.date,
-      description: descRaw,
-      amount: amountResult.amount,
-      currency: amountResult.currency,
-      paid_by: paidByRaw,
-      split_type: splitTypeRaw,
-      split_with: splitWithRaw,
-      category: categoryRaw,
-      notes: notesRaw,
-      raw
-    });
-  }
-
-  // Step 3: Build name map and check for name inconsistencies
-  const nameMap = buildNameMap(rawRows);
-  const canonicalNames = ['Aisha', 'Rohan', 'Priya', 'Meera', 'Dev', 'Sam'];
-
+  // Log name variants as info-level anomalies
   for (const [variant, canonical] of Object.entries(nameMap)) {
     if (variant !== canonical) {
       anomalies.push({
-        row_number: 0,  // Global anomaly
+        row_number: 0,
         anomaly_type: 'name_inconsistency',
         severity: 'info',
-        description: `Name variant "${variant}" will be mapped to "${canonical}"`,
+        description: `Name variant "${variant}" → mapped to "${canonical}"`,
         original_data: { variant, canonical },
         suggested_action: 'modify',
         suggested_value: { original: variant, mapped_to: canonical }
       });
     }
-
-    if (!canonicalNames.includes(canonical) && variant === canonical) {
+    // Flag completely unknown people
+    if (variant === canonical && knownMembers.length > 0 && !knownMembers.includes(canonical)) {
       anomalies.push({
         row_number: 0,
         anomaly_type: 'unknown_member',
         severity: 'warning',
-        description: `Unknown person "${variant}" found in CSV. Not in the known group members.`,
+        description: `Unknown person "${variant}" is not a member of this group.`,
         original_data: { name: variant },
         suggested_action: 'keep',
         suggested_value: { add_as_member: true }
@@ -480,162 +309,274 @@ async function processCSVImport(csvContent, groupId, importedBy, membershipMap) 
     }
   }
 
-  // Step 4: Check for duplicates
-  const duplicates = findDuplicates(parsedRows);
-  for (const dup of duplicates) {
-    anomalies.push({
-      row_number: parsedRows[dup.rowIndex].rowNum,
-      anomaly_type: 'duplicate',
-      severity: 'warning',
-      description: `Row ${parsedRows[dup.rowIndex].rowNum}: Duplicate of row ${parsedRows[dup.duplicateOf].rowNum} — "${parsedRows[dup.rowIndex].description}" on ${parsedRows[dup.rowIndex].date}`,
-      original_data: parsedRows[dup.rowIndex].raw,
-      suggested_action: 'skip',
-      suggested_value: { duplicate_of_row: parsedRows[dup.duplicateOf].rowNum }
-    });
-  }
+  // ── Step 3: Parse each row and run per-row checks ──
+  const parsed = [];
 
-  // Step 5: Check for conflicting duplicates
-  const conflicts = findConflictingDuplicates(parsedRows);
-  for (const conflict of conflicts) {
-    anomalies.push({
-      row_number: parsedRows[conflict.rowIndex].rowNum,
-      anomaly_type: 'duplicate_conflict',
-      severity: 'error',
-      description: `Row ${parsedRows[conflict.rowIndex].rowNum}: Same event as row ${parsedRows[conflict.conflictsWith].rowNum} but different amounts (₹${conflict.row1Amount} vs ₹${conflict.row2Amount}). Which is correct?`,
-      original_data: parsedRows[conflict.rowIndex].raw,
-      suggested_action: 'keep',
-      suggested_value: { conflicting_row: parsedRows[conflict.conflictsWith].rowNum }
-    });
-  }
+  for (let i = 0; i < rawRows.length; i++) {
+    const raw = rawRows[i];
+    const rowNum = i + 2; // +2 because row 1 is the header, and we're 1-indexed
 
-  // Step 6: Check membership dates
-  // membershipMap format: { "Name": { joined: "2025-02-01", left: "2025-03-31" | null } }
-  if (membershipMap) {
-    for (const row of parsedRows) {
-      if (!row.date || !row.split_with) continue;
+    const dateRaw     = col(raw, ['date', 'Date']);
+    const description = col(raw, ['description', 'Description', 'desc']);
+    const amountRaw   = col(raw, ['amount', 'Amount', 'total']);
+    const paidByRaw   = col(raw, ['paid_by', 'Paid By', 'payer']);
+    const currencyRaw = col(raw, ['currency', 'Currency']);
+    const splitType   = col(raw, ['split_type', 'Split Type', 'type']);
+    const splitWith   = col(raw, ['split_with', 'Split With', 'participants']);
+    const splitDetail = col(raw, ['split_details', 'Split Details', 'split_detail']);
+    const notes       = col(raw, ['notes', 'Notes', 'comment']);
 
-      const participants = row.split_with.split(/[,;|]/).map(n => n.trim());
+    // ── Date check ──
+    const dateResult = parseDate(dateRaw);
+    let date = null;
 
-      for (const name of participants) {
-        const canonical = nameMap[name] || name;
-        const membership = membershipMap[canonical];
+    if (dateResult.error === 'missing') {
+      anomalies.push({
+        row_number: rowNum, anomaly_type: 'missing_field', severity: 'error',
+        description: `Row ${rowNum}: Missing date`, original_data: raw, suggested_action: 'skip'
+      });
+    } else if (dateResult.error === 'unparseable') {
+      anomalies.push({
+        row_number: rowNum, anomaly_type: 'date_format', severity: 'error',
+        description: `Row ${rowNum}: Could not parse date "${dateResult.raw}"`,
+        original_data: raw, suggested_action: 'skip'
+      });
+    } else {
+      date = formatDate(dateResult.date);
 
-        if (membership) {
-          const expDate = new Date(row.date);
-          const joinDate = new Date(membership.joined);
-          const leftDate = membership.left ? new Date(membership.left) : null;
+      if (dateResult.ambiguous) {
+        anomalies.push({
+          row_number: rowNum, anomaly_type: 'ambiguous_date', severity: 'warning',
+          description: `Row ${rowNum}: Ambiguous date "${dateResult.raw}" — could be DD/MM or MM/DD. Interpreted as DD/MM/YYYY → ${date}`,
+          original_data: raw, suggested_action: 'modify',
+          suggested_value: { interpreted_as: date, format: 'DD/MM/YYYY' }
+        });
+      }
 
-          // Check if expense is before they joined
-          if (expDate < joinDate) {
-            anomalies.push({
-              row_number: row.rowNum,
-              anomaly_type: 'member_not_active',
-              severity: 'warning',
-              description: `Row ${row.rowNum}: ${canonical} hadn't joined yet on ${row.date} (joined ${membership.joined}). Excluding from split.`,
-              original_data: row.raw,
-              suggested_action: 'modify',
-              suggested_value: { exclude_member: canonical, reason: 'not_yet_joined' }
-            });
-          }
-
-          // Check if expense is after they left
-          if (leftDate && expDate > leftDate) {
-            anomalies.push({
-              row_number: row.rowNum,
-              anomaly_type: 'member_not_active',
-              severity: 'warning',
-              description: `Row ${row.rowNum}: ${canonical} had already left on ${row.date} (left ${membership.left}). Excluding from split.`,
-              original_data: row.raw,
-              suggested_action: 'modify',
-              suggested_value: { exclude_member: canonical, reason: 'already_left' }
-            });
-          }
-        }
+      // Future date?
+      if (dateResult.date > new Date()) {
+        anomalies.push({
+          row_number: rowNum, anomaly_type: 'future_date', severity: 'warning',
+          description: `Row ${rowNum}: Date ${date} is in the future`,
+          original_data: raw, suggested_action: 'keep'
+        });
       }
     }
-  }
 
-  // Step 7: Check split amounts
-  for (const row of parsedRows) {
-    if (row.split_type === 'percentage' && row.split_with) {
-      // Parse percentage values if present
-      const percentages = row.split_with.match(/(\d+(?:\.\d+)?)\s*%/g);
-      if (percentages) {
-        const total = percentages.reduce((sum, p) => sum + parseFloat(p), 0);
+    // ── Amount check ──
+    const amtResult = parseAmount(amountRaw, currencyRaw);
+
+    if (amtResult.error) {
+      anomalies.push({
+        row_number: rowNum, anomaly_type: 'missing_field', severity: 'error',
+        description: `Row ${rowNum}: Missing or invalid amount "${amountRaw || ''}"`,
+        original_data: raw, suggested_action: 'skip'
+      });
+    }
+
+    if (amtResult.amount !== null && amtResult.amount < 0) {
+      anomalies.push({
+        row_number: rowNum, anomaly_type: 'negative_amount', severity: 'warning',
+        description: `Row ${rowNum}: Negative amount (${amtResult.amount}). Treating as refund/credit.`,
+        original_data: raw, suggested_action: 'modify',
+        suggested_value: { treat_as: 'refund', amount: Math.abs(amtResult.amount) }
+      });
+    }
+
+    if (amtResult.amount === 0) {
+      anomalies.push({
+        row_number: rowNum, anomaly_type: 'zero_amount', severity: 'warning',
+        description: `Row ${rowNum}: Amount is ₹0 for "${description}". Should this row be skipped?`,
+        original_data: raw, suggested_action: 'skip'
+      });
+    }
+
+    // ── Currency check ──
+    if (amtResult.currency === 'USD') {
+      anomalies.push({
+        row_number: rowNum, anomaly_type: 'currency_mismatch', severity: 'info',
+        description: `Row ${rowNum}: USD amount ($${amtResult.amount}). Will convert at ₹${USD_RATE}/USD = ₹${(amtResult.amount * USD_RATE).toFixed(2)}`,
+        original_data: raw, suggested_action: 'modify',
+        suggested_value: { currency: 'USD', rate: USD_RATE, amount_inr: amtResult.amount * USD_RATE }
+      });
+    }
+
+    if (amtResult.currencyMissing && amtResult.amount !== null) {
+      anomalies.push({
+        row_number: rowNum, anomaly_type: 'missing_currency', severity: 'warning',
+        description: `Row ${rowNum}: Currency column is blank — defaulting to INR`,
+        original_data: raw, suggested_action: 'modify',
+        suggested_value: { assumed_currency: 'INR' }
+      });
+    }
+
+    // ── Missing payer ──
+    if (!paidByRaw) {
+      anomalies.push({
+        row_number: rowNum, anomaly_type: 'missing_field', severity: 'error',
+        description: `Row ${rowNum}: "Paid By" is blank — can't tell who paid`,
+        original_data: raw, suggested_action: 'skip'
+      });
+    }
+
+    // ── Settlement masquerading as expense ──
+    if (looksLikeSettlement(description, splitType)) {
+      anomalies.push({
+        row_number: rowNum, anomaly_type: 'settlement_as_expense', severity: 'warning',
+        description: `Row ${rowNum}: "${description}" looks like a payment/settlement, not a shared expense. Should be reclassified.`,
+        original_data: raw, suggested_action: 'reclassify',
+        suggested_value: { is_settlement: true }
+      });
+    }
+
+    // ── Percentage split validation ──
+    if (splitType === 'percentage' && splitDetail) {
+      const pcts = splitDetail.match(/(\d+(?:\.\d+)?)\s*%/g);
+      if (pcts) {
+        const total = pcts.reduce((sum, p) => sum + parseFloat(p), 0);
         if (Math.abs(total - 100) > 0.01) {
           anomalies.push({
-            row_number: row.rowNum,
-            anomaly_type: 'invalid_percentage',
-            severity: 'error',
-            description: `Row ${row.rowNum}: Percentages sum to ${total}%, not 100%`,
-            original_data: row.raw,
-            suggested_action: 'modify',
-            suggested_value: { total_percentage: total }
+            row_number: rowNum, anomaly_type: 'invalid_percentage', severity: 'error',
+            description: `Row ${rowNum}: Percentages add up to ${total}%, not 100%`,
+            original_data: raw, suggested_action: 'modify',
+            suggested_value: { total_percentage: total, details: splitDetail }
           });
         }
       }
     }
+
+    // ── Split type vs. split details mismatch ──
+    if (splitType === 'equal' && splitDetail && splitDetail.trim() !== '') {
+      // If split_type is "equal" but split_details has share/percentage info, flag it
+      const hasRatios = /\d+\s*[;:]/.test(splitDetail) || /\d+\s*%/.test(splitDetail);
+      if (hasRatios) {
+        anomalies.push({
+          row_number: rowNum, anomaly_type: 'split_type_mismatch', severity: 'info',
+          description: `Row ${rowNum}: split_type is "equal" but split_details has ratios ("${splitDetail}"). Using equal split, ignoring details.`,
+          original_data: raw, suggested_action: 'keep'
+        });
+      }
+    }
+
+    // ── Membership checks ──
+    if (membershipMap && date && splitWith) {
+      const people = splitWith.split(/[;,|]/).map(n => n.trim());
+      for (const person of people) {
+        const canonical = nameMap[person] || person;
+        const membership = membershipMap[canonical];
+        if (!membership) continue; // unknown member — already flagged above
+
+        const expDate = new Date(date);
+        const joined = new Date(membership.joined);
+        const left = membership.left ? new Date(membership.left) : null;
+
+        if (expDate < joined) {
+          anomalies.push({
+            row_number: rowNum, anomaly_type: 'member_not_active', severity: 'warning',
+            description: `Row ${rowNum}: ${canonical} hadn't joined yet on ${date} (joined ${membership.joined})`,
+            original_data: raw, suggested_action: 'modify',
+            suggested_value: { exclude_member: canonical, reason: 'not_yet_joined' }
+          });
+        }
+
+        if (left && expDate > left) {
+          anomalies.push({
+            row_number: rowNum, anomaly_type: 'member_not_active', severity: 'warning',
+            description: `Row ${rowNum}: ${canonical} had already left by ${date} (left ${membership.left})`,
+            original_data: raw, suggested_action: 'modify',
+            suggested_value: { exclude_member: canonical, reason: 'already_left' }
+          });
+        }
+      }
+    }
+
+    parsed.push({
+      rowNum, date, description,
+      amount: amtResult.amount,
+      currency: amtResult.currency,
+      paid_by: paidByRaw,
+      split_type: splitType,
+      splitWith, splitDetail, notes, raw
+    });
   }
 
-  return {
-    success: true,
+  // ── Step 4: Cross-row checks ──
+
+  // Exact duplicates
+  for (const dup of findDuplicates(parsed)) {
+    const r = parsed[dup.index];
+    const orig = parsed[dup.originalIndex];
+    anomalies.push({
+      row_number: r.rowNum, anomaly_type: 'duplicate', severity: 'warning',
+      description: `Row ${r.rowNum}: Duplicate of row ${orig.rowNum} — "${r.description}" on ${r.date}`,
+      original_data: r.raw, suggested_action: 'skip',
+      suggested_value: { duplicate_of_row: orig.rowNum }
+    });
+  }
+
+  // Conflicting duplicates (same event, different amounts)
+  for (const c of findConflicts(parsed)) {
+    const r = parsed[c.index];
+    const other = parsed[c.otherIndex];
+    anomalies.push({
+      row_number: r.rowNum, anomaly_type: 'duplicate_conflict', severity: 'error',
+      description: `Row ${r.rowNum}: Same event as row ${other.rowNum} but different amounts (₹${c.amt1} vs ₹${c.amt2}). Which is correct?`,
+      original_data: r.raw, suggested_action: 'keep',
+      suggested_value: { conflicting_row: other.rowNum }
+    });
+  }
+
+  // ── Sort anomalies: errors first, then by row number ──
+  const severityOrder = { critical: 0, error: 1, warning: 2, info: 3 };
+  anomalies.sort((a, b) => {
+    const diff = (severityOrder[a.severity] || 9) - (severityOrder[b.severity] || 9);
+    return diff !== 0 ? diff : a.row_number - b.row_number;
+  });
+
+  // ── Build stats summary ──
+  const stats = {
     total_rows: rawRows.length,
-    parsed_rows: parsedRows,
-    anomalies: anomalies.sort((a, b) => {
-      // Sort by severity (critical > error > warning > info), then by row number
-      const severityOrder = { critical: 0, error: 1, warning: 2, info: 3 };
-      if (severityOrder[a.severity] !== severityOrder[b.severity]) {
-        return severityOrder[a.severity] - severityOrder[b.severity];
-      }
-      return a.row_number - b.row_number;
-    }),
-    name_map: nameMap,
-    stats: {
-      total_rows: rawRows.length,
-      anomaly_count: anomalies.length,
-      by_severity: {
-        critical: anomalies.filter(a => a.severity === 'critical').length,
-        error: anomalies.filter(a => a.severity === 'error').length,
-        warning: anomalies.filter(a => a.severity === 'warning').length,
-        info: anomalies.filter(a => a.severity === 'info').length,
-      },
-      by_type: anomalies.reduce((acc, a) => {
-        acc[a.anomaly_type] = (acc[a.anomaly_type] || 0) + 1;
-        return acc;
-      }, {})
-    }
+    anomaly_count: anomalies.length,
+    by_severity: {
+      critical: anomalies.filter(a => a.severity === 'critical').length,
+      error:    anomalies.filter(a => a.severity === 'error').length,
+      warning:  anomalies.filter(a => a.severity === 'warning').length,
+      info:     anomalies.filter(a => a.severity === 'info').length,
+    },
+    by_type: anomalies.reduce((acc, a) => { acc[a.anomaly_type] = (acc[a.anomaly_type] || 0) + 1; return acc; }, {})
   };
+
+  return { success: true, total_rows: rawRows.length, parsed_rows: parsed, anomalies, name_map: nameMap, stats };
 }
 
-// ─── Save import session and anomalies to database ──────
-async function saveImportSession(groupId, importedBy, filename, importResult) {
-  const client = await getClient();
+
+// ── Save the import session and anomalies to the database ──
+
+async function saveImportSession(groupId, importedBy, filename, importResult, dbQuery, dbGetClient) {
+  const client = await dbGetClient();
   try {
     await client.query('BEGIN');
 
-    // Create import session
-    const sessionResult = await client.query(
+    const session = await client.query(
       `INSERT INTO import_sessions (group_id, imported_by, filename, status, total_rows, error_rows)
        VALUES ($1, $2, $3, 'reviewing', $4, $5) RETURNING *`,
-      [groupId, importedBy, filename, importResult.total_rows, importResult.anomalies.filter(a => a.severity === 'error' || a.severity === 'critical').length]
+      [groupId, importedBy, filename, importResult.total_rows,
+       importResult.anomalies.filter(a => a.severity === 'error' || a.severity === 'critical').length]
     );
 
-    const session = sessionResult.rows[0];
-
-    // Save anomalies
-    for (const anomaly of importResult.anomalies) {
+    for (const a of importResult.anomalies) {
       await client.query(
         `INSERT INTO import_anomalies
          (import_session_id, row_number, anomaly_type, severity, description, original_data, suggested_action, suggested_value)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [session.id, anomaly.row_number, anomaly.anomaly_type, anomaly.severity,
-         anomaly.description, JSON.stringify(anomaly.original_data),
-         anomaly.suggested_action, JSON.stringify(anomaly.suggested_value || null)]
+        [session.rows[0].id, a.row_number, a.anomaly_type, a.severity,
+         a.description, JSON.stringify(a.original_data),
+         a.suggested_action, JSON.stringify(a.suggested_value || null)]
       );
     }
 
     await client.query('COMMIT');
-    return session;
+    return session.rows[0];
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -644,44 +585,32 @@ async function saveImportSession(groupId, importedBy, filename, importResult) {
   }
 }
 
-// ─── Confirm import: insert approved rows as expenses ───
-async function confirmImport(sessionId, groupId) {
-  const client = await getClient();
+
+// ── Confirm the import: mark session as done ──
+
+async function confirmImport(sessionId, groupId, dbQuery, dbGetClient) {
+  const client = await dbGetClient();
   try {
     await client.query('BEGIN');
 
-    // Get the session
-    const session = await client.query(
-      'SELECT * FROM import_sessions WHERE id = $1',
-      [sessionId]
-    );
+    const session = await client.query('SELECT * FROM import_sessions WHERE id = $1', [sessionId]);
     if (session.rows.length === 0) throw new Error('Import session not found');
 
-    // Get all anomalies and their resolutions
     const anomalies = await client.query(
-      'SELECT * FROM import_anomalies WHERE import_session_id = $1',
-      [sessionId]
+      'SELECT * FROM import_anomalies WHERE import_session_id = $1', [sessionId]
     );
 
-    // Build a set of rows to skip (user rejected or error anomalies not resolved)
-    const rowsToSkip = new Set();
-    const rowModifications = {};
-
+    const skippedRows = new Set();
     for (const a of anomalies.rows) {
       if (a.user_action === 'reject' || (a.severity === 'error' && !a.resolved)) {
-        rowsToSkip.add(a.row_number);
-      }
-      if (a.user_action === 'accept' && a.suggested_value) {
-        if (!rowModifications[a.row_number]) rowModifications[a.row_number] = {};
-        Object.assign(rowModifications[a.row_number], JSON.parse(a.suggested_value));
+        skippedRows.add(a.row_number);
       }
     }
 
-    // Update session status
     await client.query(
       `UPDATE import_sessions SET status = 'confirmed', completed_at = NOW(),
        processed_rows = total_rows - $2 WHERE id = $1`,
-      [sessionId, rowsToSkip.size]
+      [sessionId, skippedRows.size]
     );
 
     await client.query('COMMIT');
@@ -689,8 +618,8 @@ async function confirmImport(sessionId, groupId) {
     return {
       confirmed: true,
       total_rows: session.rows[0].total_rows,
-      skipped_rows: rowsToSkip.size,
-      imported_rows: session.rows[0].total_rows - rowsToSkip.size
+      skipped_rows: skippedRows.size,
+      imported_rows: session.rows[0].total_rows - skippedRows.size
     };
   } catch (err) {
     await client.query('ROLLBACK');
