@@ -1,18 +1,20 @@
 # Shared Expenses App
 
+**Live Demo**: [https://splitease-mu.vercel.app/](https://splitease-mu.vercel.app/)  
+**GitHub Repository**: [https://github.com/Arun0041/SplitEase.git](https://github.com/Arun0041/SplitEase.git)
+
 A full-stack app for tracking shared expenses between flatmates — built to replace a messy spreadsheet with proper data validation, multi-currency support, and clear settlement calculations.
 
-## Tech Stack
+## Deployment & Architecture
 
-| Layer     | Technology |
-|-----------|-----------|
-| Frontend  | React 19 + Vite + Tailwind CSS v4 |
-| Backend   | Node.js + Express |
-| Database  | PostgreSQL (Neon) |
-| Auth      | Google OAuth 2.0 + JWT |
-| DB Client | `pg` (raw SQL, no ORM) |
+| Component | Provider / Technology | Description |
+|-----------|----------------------|-------------|
+| **Frontend** | **Vercel** | Hosts the React 19 + Vite SPA. Handles all client-side routing. |
+| **Backend** | **Render** | Runs the Node.js + Express API. Manages the CSV engine and business logic. |
+| **Database** | **Neon** | Serverless PostgreSQL database storing all expenses, splits, and users. |
+| **Auth** | **Google OAuth** | Secure user authentication. Users log in with their Google accounts via the backend. |
 
-## Setup Guide
+## Local Setup Guide
 
 ### Step 1: Create a PostgreSQL Database
 
