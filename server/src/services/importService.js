@@ -558,10 +558,11 @@ async function saveImportSession(groupId, importedBy, filename, importResult, db
     await client.query('BEGIN');
 
     const session = await client.query(
-      `INSERT INTO import_sessions (group_id, imported_by, filename, status, total_rows, error_rows)
-       VALUES ($1, $2, $3, 'reviewing', $4, $5) RETURNING *`,
+      `INSERT INTO import_sessions (group_id, imported_by, filename, status, total_rows, error_rows, parsed_rows)
+       VALUES ($1, $2, $3, 'reviewing', $4, $5, $6) RETURNING *`,
       [groupId, importedBy, filename, importResult.total_rows,
-       importResult.anomalies.filter(a => a.severity === 'error' || a.severity === 'critical').length]
+       importResult.anomalies.filter(a => a.severity === 'error' || a.severity === 'critical').length,
+       JSON.stringify(importResult.parsed_rows)]
     );
 
     for (const a of importResult.anomalies) {
@@ -601,9 +602,151 @@ async function confirmImport(sessionId, groupId, dbQuery, dbGetClient) {
     );
 
     const skippedRows = new Set();
+    const modificationsByRow = {};
+
     for (const a of anomalies.rows) {
       if (a.user_action === 'reject' || (a.severity === 'error' && !a.resolved)) {
         skippedRows.add(a.row_number);
+      } else if (a.user_action === 'accept' && a.user_value) {
+        if (!modificationsByRow[a.row_number]) modificationsByRow[a.row_number] = [];
+        modificationsByRow[a.row_number].push({ type: a.anomaly_type, value: a.user_value });
+      } else if (a.user_action === 'accept' && a.anomaly_type === 'settlement_as_expense') {
+        if (!modificationsByRow[a.row_number]) modificationsByRow[a.row_number] = [];
+        modificationsByRow[a.row_number].push({ type: a.anomaly_type, value: { is_settlement: true } });
+      }
+    }
+
+    const parsedRows = session.rows[0].parsed_rows || [];
+    const memberNames = new Set();
+    const validRows = [];
+
+    for (const row of parsedRows) {
+      if (skippedRows.has(row.rowNum)) continue;
+      let r = { ...row };
+
+      const mods = modificationsByRow[r.rowNum] || [];
+      for (const m of mods) {
+        if (m.type === 'settlement_as_expense') r.is_settlement = true;
+        if (m.type === 'negative_amount' && m.value?.amount) r.amount = m.value.amount;
+        if (m.type === 'missing_currency' && m.value?.assumed_currency) r.currency = m.value.assumed_currency;
+      }
+
+      validRows.push(r);
+      if (r.paid_by) memberNames.add(r.paid_by);
+      if (r.splitWith) r.splitWith.split(/[;,|]/).forEach(n => { if (n.trim()) memberNames.add(n.trim()); });
+    }
+
+    const userIdsByName = {};
+    for (const name of memberNames) {
+      let u = await client.query('SELECT id, name FROM users WHERE name ILIKE $1', [name]);
+      let userId;
+      if (u.rows.length === 0) {
+        const email = `${name.replace(/\s+/g, '').toLowerCase()}@split.local`;
+        const res = await client.query(
+          `INSERT INTO users (name, email) VALUES ($1, $2) ON CONFLICT (email) DO UPDATE SET name=EXCLUDED.name RETURNING id`,
+          [name, email]
+        );
+        userId = res.rows[0].id;
+      } else {
+        userId = u.rows[0].id;
+      }
+      userIdsByName[name] = userId;
+
+      await client.query(
+        `INSERT INTO group_members (group_id, user_id, joined_at) VALUES ($1, $2, '2020-01-01') ON CONFLICT DO NOTHING`,
+        [groupId, userId]
+      );
+    }
+
+    for (const r of validRows) {
+      const payerId = userIdsByName[r.paid_by];
+      const amt = parseFloat(r.amount) || 0;
+
+      if (r.is_settlement || r.description?.toLowerCase().includes('settle')) {
+        let targetName = null;
+        if (r.splitWith) {
+          const parts = r.splitWith.split(/[;,|]/);
+          if (parts.length > 0) targetName = parts[0].trim();
+        }
+        if (targetName && userIdsByName[targetName]) {
+          await client.query(
+            `INSERT INTO settlements (group_id, paid_by, paid_to, amount, currency, settlement_date, notes) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [groupId, payerId, userIdsByName[targetName], amt, r.currency || 'INR', r.date, r.description]
+          );
+        }
+      } else {
+        const amountInBase = r.currency === 'USD' ? amt * 83.0 : amt;
+        let finalSplitType = (r.split_type && r.split_type !== '') ? r.split_type.toLowerCase() : 'equal';
+        if (finalSplitType === 'unequal') finalSplitType = 'exact';
+        if (finalSplitType === 'share') finalSplitType = 'shares';
+        if (!['equal', 'exact', 'percentage', 'shares'].includes(finalSplitType)) finalSplitType = 'equal';
+        
+        const expRes = await client.query(
+          `INSERT INTO expenses (group_id, paid_by, description, amount, currency, exchange_rate, amount_in_base, expense_date, split_type, notes, import_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+          [groupId, payerId, r.description, amt, r.currency || 'INR', r.currency === 'USD' ? 83.0 : 1.0, amountInBase, r.date, finalSplitType, r.notes, sessionId]
+        );
+        const expId = expRes.rows[0].id;
+
+        const splitWithNames = r.splitWith ? r.splitWith.split(/[;,|]/).map(n => n.trim()).filter(n => n) : [];
+        if (splitWithNames.length === 0) continue;
+
+        if (finalSplitType === 'percentage' && r.splitDetail) {
+          const pcts = r.splitDetail.match(/(\d+(?:\.\d+)?)\s*%/g);
+          for (let i = 0; i < splitWithNames.length; i++) {
+            const pname = splitWithNames[i];
+            const pct = pcts && pcts[i] ? parseFloat(pcts[i]) : (100 / splitWithNames.length);
+            const splitAmt = amountInBase * (pct / 100);
+            await client.query(
+              `INSERT INTO expense_splits (expense_id, user_id, amount, percentage) VALUES ($1, $2, $3, $4)`,
+              [expId, userIdsByName[pname], splitAmt, pct]
+            );
+          }
+        } else if (finalSplitType === 'exact' && r.splitDetail) {
+           const parts = r.splitDetail.split(/[;,|]/);
+           const exactMap = {};
+           for (const part of parts) {
+               const m = part.match(/([A-Za-z\s]+)\s+([\d.]+)/);
+               if (m) exactMap[m[1].trim().toLowerCase()] = parseFloat(m[2]);
+           }
+           for (const pname of splitWithNames) {
+               const parsedAmt = exactMap[pname.toLowerCase()] || 0;
+               const splitAmt = r.currency === 'USD' ? parsedAmt * 83.0 : parsedAmt;
+               await client.query(
+                   `INSERT INTO expense_splits (expense_id, user_id, amount) VALUES ($1, $2, $3)`,
+                   [expId, userIdsByName[pname], splitAmt]
+               );
+           }
+        } else if (finalSplitType === 'shares' && r.splitDetail) {
+           const parts = r.splitDetail.split(/[;,|]/);
+           const shareMap = {};
+           let totalShares = 0;
+           for (const part of parts) {
+               const m = part.match(/([A-Za-z\s]+)\s+([\d.]+)/);
+               if (m) {
+                   const s = parseFloat(m[2]);
+                   shareMap[m[1].trim().toLowerCase()] = s;
+                   totalShares += s;
+               }
+           }
+           if (totalShares === 0) totalShares = splitWithNames.length;
+           for (const pname of splitWithNames) {
+               const s = shareMap[pname.toLowerCase()] || 1;
+               const splitAmt = amountInBase * (s / totalShares);
+               await client.query(
+                   `INSERT INTO expense_splits (expense_id, user_id, amount, shares) VALUES ($1, $2, $3, $4)`,
+                   [expId, userIdsByName[pname], splitAmt, s]
+               );
+           }
+        } else {
+          const splitAmt = amountInBase / splitWithNames.length;
+          for (const pname of splitWithNames) {
+            await client.query(
+              `INSERT INTO expense_splits (expense_id, user_id, amount) VALUES ($1, $2, $3)`,
+              [expId, userIdsByName[pname], splitAmt]
+            );
+          }
+        }
       }
     }
 

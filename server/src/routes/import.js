@@ -47,10 +47,16 @@ router.post('/groups/:id/import', upload.single('file'), async (req, res) => {
     // Save to database so the user can review anomalies before confirming
     const session = await saveImportSession(groupId, req.user.id, req.file.originalname, result, query, getClient);
 
+    const dbAnomalies = await query(
+      `SELECT * FROM import_anomalies WHERE import_session_id = $1
+       ORDER BY CASE severity WHEN 'critical' THEN 1 WHEN 'error' THEN 2 WHEN 'warning' THEN 3 ELSE 4 END, row_number`,
+      [session.id]
+    );
+
     res.json({
       session_id: session.id,
       stats: result.stats,
-      anomalies: result.anomalies,
+      anomalies: dbAnomalies.rows,
       name_map: result.name_map
     });
   } catch (err) {

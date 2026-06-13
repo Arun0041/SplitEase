@@ -7,18 +7,16 @@ export default function ImportCSV() {
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState(null);      // stats from analysis
-  const [anomalies, setAnomalies] = useState([]);   // list of flagged issues
+  const [result, setResult] = useState(null);
+  const [anomalies, setAnomalies] = useState([]);
   const [sessionId, setSessionId] = useState(null);
   const [activeTab, setActiveTab] = useState('error');
 
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
-
     const formData = new FormData();
     formData.append('file', file);
-
     try {
       const { data } = await api.post(`/api/groups/${id}/import`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -35,10 +33,7 @@ export default function ImportCSV() {
 
   const resolveAnomaly = async (anomalyId, action, value = null) => {
     try {
-      await api.put(`/api/groups/${id}/import/${sessionId}/anomalies/${anomalyId}`, {
-        user_action: action,
-        user_value: value
-      });
+      await api.put(`/api/groups/${id}/import/${sessionId}/anomalies/${anomalyId}`, { user_action: action, user_value: value });
       setAnomalies(prev => prev.map(a => a.id === anomalyId ? { ...a, resolved: true, user_action: action } : a));
     } catch (err) {
       console.error('Failed to resolve:', err);
@@ -58,118 +53,111 @@ export default function ImportCSV() {
 
   const filtered = anomalies.filter(a => a.severity === activeTab && !a.resolved);
   const unresolvedErrors = anomalies.filter(a => (a.severity === 'error' || a.severity === 'critical') && !a.resolved);
-  const severityIcon = { error: '✕', warning: '⚠', info: 'ℹ' };
-  const severityBg = { error: 'bg-red-50 text-red-600', warning: 'bg-amber-50 text-amber-600', info: 'bg-blue-50 text-blue-600' };
 
   return (
-    <div>
-      <button onClick={() => navigate(`/groups/${id}`)} className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 mb-4 transition-colors">
+    <div className="animate-[fade-in_0.3s_ease-out]">
+      <button onClick={() => navigate(`/groups/${id}`)} className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-600 hover:text-brand-800 mb-6 transition-colors">
         ← Back to Group
       </button>
 
-      <h1 className="text-xl font-bold text-slate-900">Import Expenses CSV</h1>
-      <p className="text-sm text-slate-500 mt-1 mb-6">Upload your spreadsheet export. We'll flag any data problems for you to review before importing.</p>
+      <h1 className="text-3xl font-extrabold text-slate-800">Import CSV</h1>
+      <p className="font-medium text-slate-500 mt-2 mb-8">Drop your spreadsheet export here. We'll automatically catch data issues.</p>
 
-      {/* ── Upload section ── */}
       {!result ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 max-w-2xl">
+        <div className="bg-white border border-slate-100 rounded-3xl p-10 max-w-2xl shadow-sm">
           <div
-            className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${
-              file ? 'border-indigo-400 bg-indigo-50' : 'border-slate-300 hover:border-indigo-400'
+            className={`border-2 border-dashed rounded-2xl p-14 text-center transition-all cursor-pointer hover:bg-slate-50 ${
+              file ? 'border-brand-400 bg-brand-50/50 scale-[1.02]' : 'border-slate-300 hover:border-brand-400'
             }`}
             onClick={() => document.getElementById('csv-input').click()}
           >
-            <p className="text-3xl mb-2">{file ? '📄' : '☁️'}</p>
-            <p className="text-sm text-slate-600">
-              {file ? file.name : 'Click to upload or drag and drop'}
+            <div className="w-16 h-16 mx-auto bg-white rounded-2xl flex items-center justify-center text-3xl shadow-sm border border-slate-100 mb-4 transition-transform group-hover:scale-110">
+              {file ? '📄' : '☁️'}
+            </div>
+            <p className="text-lg font-bold text-slate-800">
+              {file ? file.name : 'Click or drop file here'}
             </p>
-            <p className="text-xs text-slate-400 mt-1">{file ? `${(file.size / 1024).toFixed(1)} KB` : 'CSV files up to 5MB'}</p>
+            <p className="text-sm font-medium text-slate-400 mt-2">{file ? `${(file.size / 1024).toFixed(1)} KB` : 'CSV files up to 5MB'}</p>
             <input id="csv-input" type="file" accept=".csv" className="hidden" onChange={e => e.target.files?.[0] && setFile(e.target.files[0])} />
           </div>
 
-          <div className="mt-6 flex justify-end">
+          <div className="mt-8 flex justify-end">
             <button onClick={handleUpload} disabled={!file || uploading}
-              className="px-6 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-colors">
-              {uploading ? 'Analyzing…' : 'Analyze CSV'}
+              className="px-6 py-3 font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 hover:-translate-y-0.5 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed shadow-sm transition-all">
+              {uploading ? 'Analyzing...' : 'Analyze Data'}
             </button>
           </div>
         </div>
       ) : (
-        /* ── Analysis report ── */
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden max-w-4xl">
-          {/* Report header */}
-          <div className="px-6 py-5 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm max-w-4xl">
+          <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Import Analysis Report</h2>
-              <p className="text-sm text-slate-500 mt-0.5">
+              <h2 className="text-lg font-extrabold text-slate-800">Analysis Report</h2>
+              <p className="font-medium text-slate-500 mt-0.5">
                 {result.total_rows} rows processed · {result.anomaly_count} issues found
               </p>
             </div>
             <button onClick={confirmImport} disabled={unresolvedErrors.length > 0}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors">
-              {unresolvedErrors.length > 0 ? `Resolve ${unresolvedErrors.length} error(s) first` : 'Confirm Import'}
+              className="px-6 py-3 font-bold text-white bg-brand-600 rounded-xl hover:bg-brand-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed shadow-sm transition-all hover:-translate-y-0.5">
+              {unresolvedErrors.length > 0 ? `Fix ${unresolvedErrors.length} error(s) first` : 'Confirm Import'}
             </button>
           </div>
 
-          {/* Severity tabs */}
-          <div className="flex border-b border-slate-200">
+          <div className="flex border-b border-slate-100 bg-white">
             {['error', 'warning', 'info'].map(sev => {
               const count = anomalies.filter(a => a.severity === sev && !a.resolved).length;
-              const colors = {
-                error:   tab === sev ? 'text-red-600 border-red-500 bg-red-50' : '',
-                warning: tab === sev ? 'text-amber-600 border-amber-500 bg-amber-50' : '',
-                info:    tab === sev ? 'text-blue-600 border-blue-500 bg-blue-50' : ''
-              };
-              const tab = activeTab;
               return (
                 <button key={sev} onClick={() => setActiveTab(sev)}
-                  className={`flex-1 py-3.5 text-sm font-semibold capitalize border-b-2 transition-colors ${
-                    activeTab === sev ? colors[sev] : 'text-slate-500 border-transparent hover:bg-slate-50'
+                  className={`flex-1 py-4 text-sm font-bold capitalize border-b-2 transition-all ${
+                    activeTab === sev ? 'text-brand-600 border-brand-600 bg-brand-50/30' : 'text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-50'
                   }`}>
                   {sev}
-                  {count > 0 && <span className="ml-1.5 text-xs bg-white border border-slate-200 px-1.5 py-0.5 rounded-full font-bold">{count}</span>}
+                  {count > 0 && <span className="ml-2 text-xs bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-full font-extrabold">{count}</span>}
                 </button>
               );
             })}
           </div>
 
-          {/* Anomaly list */}
-          <div>
+          <div className="bg-stone-50/30">
             {filtered.length === 0 ? (
-              <div className="py-12 text-center text-slate-400">
-                <p className="text-2xl mb-2">✓</p>
-                <p className="text-sm">No unresolved {activeTab}s remaining.</p>
+              <div className="py-20 text-center">
+                <div className="mx-auto w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-3xl mb-4 border border-emerald-100">✓</div>
+                <p className="font-bold text-slate-600">No unresolved {activeTab}s remaining.</p>
               </div>
             ) : (
               filtered.map(a => (
-                <div key={a.id || `${a.row_number}-${a.anomaly_type}`} className="flex gap-4 px-6 py-5 border-b border-slate-100 last:border-b-0">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0 mt-0.5 ${severityBg[a.severity]}`}>
-                    {severityIcon[a.severity]}
+                <div key={a.id} className="flex gap-5 p-6 border-b border-slate-100 last:border-b-0 bg-white hover:bg-slate-50 transition-colors">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-extrabold shrink-0 border shadow-sm ${
+                    a.severity === 'error' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                    a.severity === 'warning' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                    'bg-blue-50 text-blue-600 border-blue-100'
+                  }`}>
+                    {a.severity === 'error' ? '!' : a.severity === 'warning' ? '?' : 'i'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-1">
+                    <p className="text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-1.5">
                       {a.anomaly_type.replace(/_/g, ' ')}
                     </p>
-                    <p className="text-sm text-slate-700 leading-relaxed">{a.description}</p>
-
-                    {a.original_data && typeof a.original_data === 'object' && (
-                      <pre className="mt-2 bg-slate-100 p-2.5 rounded-lg text-[11px] text-slate-500 font-mono overflow-x-auto whitespace-pre-wrap break-all">
-                        {JSON.stringify(a.original_data, null, 1)}
+                    <p className="font-bold text-slate-800 leading-snug">{a.description}</p>
+                    
+                    {a.original_data && (
+                      <pre className="mt-3 bg-slate-900 p-4 rounded-xl text-xs text-emerald-400 font-mono overflow-x-auto border border-slate-800 shadow-inner">
+                        {JSON.stringify(a.original_data, null, 2)}
                       </pre>
                     )}
 
-                    <div className="flex gap-2 mt-3">
+                    <div className="flex flex-wrap gap-2.5 mt-4">
                       {a.suggested_action === 'skip' && (
-                        <button onClick={() => resolveAnomaly(a.id, 'reject')} className="px-3 py-1.5 text-xs font-semibold bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">Skip Row</button>
+                        <button onClick={() => resolveAnomaly(a.id, 'reject')} className="px-4 py-2 text-xs font-bold bg-rose-50 border border-rose-200 text-rose-700 rounded-xl hover:bg-rose-100 transition-colors shadow-sm">Skip Row</button>
                       )}
                       {a.suggested_action === 'modify' && (
                         <>
-                          <button onClick={() => resolveAnomaly(a.id, 'accept', a.suggested_value)} className="px-3 py-1.5 text-xs font-semibold bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors">Accept Fix</button>
-                          <button onClick={() => resolveAnomaly(a.id, 'reject')} className="px-3 py-1.5 text-xs font-semibold bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors">Skip Row</button>
+                          <button onClick={() => resolveAnomaly(a.id, 'accept', a.suggested_value)} className="px-4 py-2 text-xs font-bold bg-brand-600 border border-brand-700 text-white rounded-xl hover:bg-brand-700 shadow-sm transition-colors">Accept Fix</button>
+                          <button onClick={() => resolveAnomaly(a.id, 'reject')} className="px-4 py-2 text-xs font-bold bg-slate-100 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors shadow-sm">Skip Row</button>
                         </>
                       )}
                       {(a.suggested_action === 'keep' || a.suggested_action === 'reclassify') && (
-                        <button onClick={() => resolveAnomaly(a.id, 'accept')} className="px-3 py-1.5 text-xs font-semibold bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors">
+                        <button onClick={() => resolveAnomaly(a.id, 'accept')} className="px-4 py-2 text-xs font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl hover:bg-emerald-100 shadow-sm transition-colors">
                           {a.suggested_action === 'reclassify' ? 'Reclassify as Settlement' : 'Acknowledge'}
                         </button>
                       )}
