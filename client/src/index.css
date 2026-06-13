@@ -14,47 +14,36 @@
 
   --color-accent-400: #22d3ee;
   --color-accent-500: #06b6d4;
-
-  --color-surface: #0f172a;
-  --color-surface-raised: #1e293b;
-  --color-surface-overlay: #334155;
 }
 
 @layer base {
   body {
     font-family: 'Outfit', sans-serif;
-    @apply bg-surface text-slate-200 antialiased;
+    @apply bg-slate-50 text-slate-800 antialiased;
   }
 }
 
 @layer utilities {
   .glass {
-    background: rgba(30, 41, 59, 0.6);
+    background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(148, 163, 184, 0.1);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   }
 
-  .glass-light {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+  .glass-subtle {
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(226, 232, 240, 0.6);
   }
 
   .gradient-text {
-    background: linear-gradient(135deg, #a78bfa 0%, #22d3ee 50%, #34d399 100%);
+    background: linear-gradient(135deg, #7c3aed 0%, #06b6d4 60%, #10b981 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-  }
-
-  .glow-brand {
-    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3), 0 0 40px rgba(139, 92, 246, 0.1);
-  }
-
-  .glow-accent {
-    box-shadow: 0 0 20px rgba(34, 211, 238, 0.3), 0 0 40px rgba(34, 211, 238, 0.1);
   }
 
   .card-hover {
@@ -63,8 +52,8 @@
 
   .card-hover:hover {
     transform: translateY(-4px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(139, 92, 246, 0.1);
-    border-color: rgba(139, 92, 246, 0.3);
+    box-shadow: 0 16px 48px rgba(139, 92, 246, 0.08), 0 4px 12px rgba(0, 0, 0, 0.06);
+    border-color: rgba(139, 92, 246, 0.25);
   }
 }
 
@@ -74,8 +63,8 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
 }
 
 @keyframes slide-up {

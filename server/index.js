@@ -46,6 +46,4 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Auth endpoints at /auth`);
-  console.log(`API endpoints at /api`);
 });

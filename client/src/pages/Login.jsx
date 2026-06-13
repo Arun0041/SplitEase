@@ -12,27 +12,26 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface relative overflow-hidden px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 via-white to-accent-400/10 relative overflow-hidden px-4">
       {/* Animated gradient orbs */}
-      <div className="absolute top-1/4 -left-20 w-72 h-72 bg-brand-600/20 rounded-full blur-3xl" style={{ animation: 'float 8s ease-in-out infinite' }} />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-accent-500/15 rounded-full blur-3xl" style={{ animation: 'float 10s ease-in-out infinite 3s' }} />
-      <div className="absolute top-10 right-1/4 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl" style={{ animation: 'float 12s ease-in-out infinite 1s' }} />
+      <div className="absolute top-1/4 -left-20 w-72 h-72 bg-brand-300/30 rounded-full blur-3xl" style={{ animation: 'float 8s ease-in-out infinite' }} />
+      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-accent-400/20 rounded-full blur-3xl" style={{ animation: 'float 10s ease-in-out infinite 3s' }} />
+      <div className="absolute top-10 right-1/4 w-48 h-48 bg-emerald-300/20 rounded-full blur-3xl" style={{ animation: 'float 12s ease-in-out infinite 1s' }} />
 
-      <div className="w-full max-w-sm glass rounded-3xl p-10 text-center relative" style={{ animation: 'slide-up 0.5s ease-out' }}>
+      <div className="w-full max-w-sm glass rounded-3xl p-10 text-center relative shadow-xl" style={{ animation: 'slide-up 0.5s ease-out' }}>
         <div className="relative z-10">
-          {/* Logo */}
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-brand-500 to-accent-400 rounded-2xl flex items-center justify-center shadow-lg glow-brand mb-6">
+          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-brand-500 to-accent-500 rounded-2xl flex items-center justify-center shadow-lg mb-6">
             <span className="text-2xl font-extrabold text-white">S</span>
           </div>
 
           <h1 className="text-3xl font-extrabold gradient-text mb-2">SplitEase</h1>
-          <p className="text-sm font-medium text-slate-400 mb-10">
+          <p className="text-sm font-medium text-slate-500 mb-10">
             Fair and easy expense splitting for everyone.
           </p>
 
           <button
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 py-3.5 px-4 glass-light rounded-2xl font-bold text-white hover:bg-white/10 hover:-translate-y-0.5 transition-all shadow-lg"
+            className="w-full flex items-center justify-center gap-3 py-3.5 px-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -43,7 +42,7 @@ export default function Login() {
             Continue with Google
           </button>
 
-          <p className="mt-8 text-xs text-slate-500">
+          <p className="mt-8 text-xs text-slate-400">
             Secure login powered by Google OAuth 2.0
           </p>
         </div>
