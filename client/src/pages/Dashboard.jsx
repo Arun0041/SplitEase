@@ -95,7 +95,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Modal */}
+      {}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-[fade-in_0.2s_ease-out]" onClick={() => setShowModal(false)}>
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden scale-100 transition-transform" onClick={e => e.stopPropagation()}>

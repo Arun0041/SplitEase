@@ -2,10 +2,10 @@
   "name": "splitwise-server",
   "version": "1.0.0",
   "description": "Shared Expenses App - Backend API",
-  "main": "src/index.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "db:init": "node src/db/init.js"
   },
   "dependencies": {

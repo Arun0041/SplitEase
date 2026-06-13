@@ -14,7 +14,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-stone-50 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-100 via-stone-50 to-stone-100 px-4">
       <div className="w-full max-w-sm glass rounded-3xl p-10 text-center relative overflow-hidden">
-        {/* Decorative blur */}
+        {}
         <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-brand-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
         <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-32 h-32 bg-emerald-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
 

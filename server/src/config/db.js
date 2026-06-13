@@ -15,11 +15,11 @@ const pool = new Pool({
 
 // Test the connection on startup
 pool.on('connect', () => {
-  console.log('✅ Connected to PostgreSQL (Neon)');
+  console.log('Connected to PostgreSQL (Neon)');
 });
 
 pool.on('error', (err) => {
-  console.error('❌ Unexpected database error:', err);
+  console.error('Unexpected database error:', err);
   process.exit(-1);
 });
 
