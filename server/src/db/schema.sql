@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS import_sessions (
     total_rows INTEGER DEFAULT 0,
     processed_rows INTEGER DEFAULT 0,
     error_rows INTEGER DEFAULT 0,
+    parsed_rows JSONB,  -- Stores parsed CSV rows between analysis and confirmation
     created_at TIMESTAMP DEFAULT NOW(),
     completed_at TIMESTAMP
 );

@@ -117,22 +117,22 @@ The import engine parses `expenses_export.csv` and detects **16 types of data an
 
 ```
 ├── server/
+│   ├── index.js              # Express server entry point
 │   ├── src/
-│   │   ├── config/         # db.js, passport.js
-│   │   ├── db/             # schema.sql, init.js, expenses_export.csv
-│   │   ├── middleware/     # auth.js (JWT verification)
-│   │   ├── routes/         # auth, groups, expenses, settlements, import
-│   │   ├── services/       # balanceService.js, importService.js
-│   │   └── index.js        # Express server entry point
+│   │   ├── config/           # db.js, passport.js
+│   │   ├── db/               # schema.sql, init.js
+│   │   ├── middleware/       # auth.js (JWT verification)
+│   │   ├── routes/           # auth, groups, expenses, settlements, import
+│   │   └── services/         # balanceService.js, importService.js
 │   └── .env.example
 ├── client/
 │   └── src/
-│       ├── components/     # Layout.jsx
-│       ├── context/        # AuthContext.jsx
-│       ├── lib/            # axios.js
-│       └── pages/          # Login, Dashboard, GroupDetail, ImportCSV
-├── DECISIONS.md            # Architecture decision log
-├── SCOPE.md                # Anomaly detection strategy
-├── AI_USAGE.md             # AI usage documentation
+│       ├── components/       # Layout.jsx
+│       ├── context/          # AuthContext.jsx
+│       ├── lib/              # axios.js
+│       └── pages/            # Login, Dashboard, GroupDetail, ImportCSV
+├── DECISIONS.md              # Architecture decision log
+├── SCOPE.md                  # Anomaly detection strategy & database schema
+├── AI_USAGE.md               # AI usage documentation
 └── README.md
 ```
