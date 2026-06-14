@@ -758,6 +758,7 @@ async function confirmImport(sessionId, groupId, dbQuery, dbGetClient) {
 
     await client.query('COMMIT');
 
+
     return {
       confirmed: true,
       total_rows: session.rows[0].total_rows,

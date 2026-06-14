@@ -30,7 +30,7 @@ export default function Login() {
             No more messy spreadsheets. SplitEase does the heavy lifting for you.
           </p>
 
-          <div className="flex flex-col gap-6">
+          <div className="hidden sm:flex flex-col gap-4 lg:gap-6 mt-4 lg:mt-0">
             <div className="flex gap-4" style={{ animation: 'slide-up 0.4s ease-out 0.1s both' }}>
               <div className="flex flex-col items-center">
                 <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs shrink-0 border border-slate-300">1</div>
@@ -73,7 +73,7 @@ export default function Login() {
       </div>
 
       {/* Right Section - Login Box */}
-      <div className="w-full lg:w-[450px] xl:w-[500px] h-full bg-white border-l border-slate-200 flex flex-col justify-center items-center px-8 relative shadow-2xl">
+      <div className="w-full lg:w-[450px] xl:w-[500px] flex-1 lg:flex-none lg:h-full bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col justify-center items-center px-8 relative shadow-2xl">
         <div className="w-full max-w-sm" style={{ animation: 'slide-up 0.5s ease-out 0.4s both' }}>
           
           <div className="text-center mb-8">

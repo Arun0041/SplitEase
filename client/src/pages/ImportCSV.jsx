@@ -12,6 +12,36 @@ export default function ImportCSV() {
   const [sessionId, setSessionId] = useState(null);
   const [activeTab, setActiveTab] = useState('error');
 
+  const downloadReport = () => {
+    let content = `Import Report\nDate: ${new Date().toLocaleString()}\n`;
+    content += `File: ${file?.name || 'unknown.csv'}\n`;
+    content += `Total Rows Processed: ${result?.total_rows || 0}\n\n`;
+    content += `--- Anomalies Detected & Actions Taken ---\n\n`;
+    
+    if (anomalies.length === 0) {
+      content += `No anomalies detected during this import.\n`;
+    } else {
+      anomalies.forEach(a => {
+        content += `Row ${a.row_number}: ${a.anomaly_type.replace(/_/g, ' ').toUpperCase()}\n`;
+        content += `Description: ${a.description}\n`;
+        content += `Suggested Action: ${a.suggested_action} (Value: ${JSON.stringify(a.suggested_value) || 'None'})\n`;
+        content += `User Action Taken: ${a.user_action || 'Pending'} (Value: ${JSON.stringify(a.user_value) || 'None'})\n`;
+        content += `Status: ${a.resolved ? 'RESOLVED' : 'UNRESOLVED'}\n`;
+        content += `--------------------------------------------------\n`;
+      });
+    }
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `import_report_${sessionId || 'new'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
@@ -114,8 +144,8 @@ export default function ImportCSV() {
 
           {/* Severity tabs */}
           <div className="flex border-b border-slate-200 bg-slate-50/50">
-            {['error', 'warning', 'info'].map(sev => {
-              const count = anomalies.filter(a => a.severity === sev && !a.resolved).length;
+            {['error', 'warning', 'info', 'report'].map(sev => {
+              const count = sev === 'report' ? 0 : anomalies.filter(a => a.severity === sev && !a.resolved).length;
               return (
                 <button key={sev} onClick={() => setActiveTab(sev)}
                   className={`flex-1 py-3 text-sm font-bold capitalize transition-all relative ${
@@ -132,8 +162,40 @@ export default function ImportCSV() {
           </div>
 
           {/* Anomaly list */}
-          <div className="p-6 bg-white">
-            {filtered.length === 0 ? (
+          <div className="p-6 bg-white max-h-[600px] overflow-y-auto">
+            {activeTab === 'report' ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-extrabold text-slate-900">Complete Import Log</h3>
+                  <button onClick={downloadReport} className="px-4 py-2 font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors text-sm shadow-sm">
+                    Download Text Report
+                  </button>
+                </div>
+                {anomalies.length === 0 ? (
+                  <p className="text-slate-500 font-medium text-sm py-4">No anomalies detected.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {anomalies.map(a => (
+                      <div key={a.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm flex gap-4">
+                        <div className="flex-1">
+                          <p className="font-bold text-slate-900 mb-1">Row {a.row_number}: {a.anomaly_type.replace(/_/g, ' ').toUpperCase()}</p>
+                          <p className="text-slate-600 mb-2">{a.description}</p>
+                          <div className="grid grid-cols-2 gap-4 text-xs font-medium bg-white p-3 rounded border border-slate-100 shadow-sm">
+                            <div><span className="text-slate-400 block mb-0.5 uppercase tracking-wider text-[9px]">Suggested Action</span> <span className="text-slate-800">{a.suggested_action}</span></div>
+                            <div><span className="text-slate-400 block mb-0.5 uppercase tracking-wider text-[9px]">User Action Taken</span> <span className="text-slate-800">{a.user_action || 'Pending'}</span></div>
+                          </div>
+                        </div>
+                        <div className="shrink-0 flex items-center">
+                           <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded border ${a.resolved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                             {a.resolved ? 'Resolved' : 'Pending'}
+                           </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="py-16 text-center">
                 <div className="mx-auto w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-2xl mb-4 border border-emerald-100">✓</div>
                 <p className="font-bold text-slate-500">No unresolved {activeTab}s remaining.</p>
