@@ -32,8 +32,10 @@ export default function GroupDetail() {
   const [expSplitType, setExpSplitType] = useState('equal');
   const [expCurrency, setExpCurrency] = useState('INR');
   const [expNotes, setExpNotes] = useState('');
+  const [expSplits, setExpSplits] = useState({});
 
   // Settlement form
+  const [settPaidBy, setSettPaidBy] = useState(user?.id || '');
   const [settPaidTo, setSettPaidTo] = useState('');
   const [settAmount, setSettAmount] = useState('');
   const [settDate, setSettDate] = useState(new Date().toISOString().split('T')[0]);
@@ -49,13 +51,18 @@ export default function GroupDetail() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [gRes, eRes, bRes] = await Promise.all([
+      const [gRes, eRes, bRes, sRes] = await Promise.all([
         api.get(`/api/groups/${id}`),
         api.get(`/api/groups/${id}/expenses?limit=50`),
-        api.get(`/api/groups/${id}/balances`)
+        api.get(`/api/groups/${id}/balances`),
+        api.get(`/api/groups/${id}/settlements`)
       ]);
       setGroup(gRes.data);
-      setExpenses(eRes.data.expenses || []);
+      
+      const combined = [...(eRes.data.expenses || []), ...(sRes.data || [])];
+      combined.sort((a, b) => new Date(b.expense_date || b.settlement_date) - new Date(a.expense_date || a.settlement_date));
+      setExpenses(combined);
+      
       setBalances(bRes.data || []);
       try {
         const sRes = await api.get(`/api/groups/${id}/simplified-debts`);
@@ -92,6 +99,41 @@ export default function GroupDetail() {
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
+    
+    // Build splits array and validate
+    const splits = [];
+    if (expSplitType !== 'equal') {
+      let totalValue = 0;
+      for (const uid in expSplits) {
+        if (expSplits[uid].selected !== false && expSplits[uid].value) {
+          const val = parseFloat(expSplits[uid].value);
+          if (isNaN(val) || val <= 0) continue;
+          totalValue += val;
+          splits.push({
+            user_id: parseInt(uid),
+            amount: expSplitType === 'exact' ? val : undefined,
+            percentage: expSplitType === 'percentage' ? val : undefined,
+            shares: expSplitType === 'shares' ? val : undefined,
+          });
+        }
+      }
+      if (splits.length === 0) return alert('Please enter split details for selected members');
+      if (expSplitType === 'percentage' && Math.abs(totalValue - 100) > 0.01) {
+        return alert(`Percentages must sum to 100%. Current sum: ${totalValue}%`);
+      }
+      if (expSplitType === 'exact' && Math.abs(totalValue - parseFloat(expAmount)) > 0.01) {
+        return alert(`Exact amounts must sum to the total amount. Current sum: ${totalValue}`);
+      }
+    } else {
+      // equal split: allow excluding people
+      for (const uid in expSplits) {
+        if (expSplits[uid].selected !== false) {
+          splits.push({ user_id: parseInt(uid) });
+        }
+      }
+      if (splits.length === 0) return alert('Please select at least one member for the split');
+    }
+
     try {
       await api.post(`/api/groups/${id}/expenses`, {
         description: expDesc,
@@ -100,7 +142,8 @@ export default function GroupDetail() {
         split_type: expSplitType,
         currency: expCurrency,
         notes: expNotes,
-        paid_by: expPaidBy || user.id
+        paid_by: expPaidBy || user.id,
+        splits: splits
       });
       setShowExpenseForm(false);
       setExpDesc(''); setExpAmount(''); setExpNotes('');
@@ -115,14 +158,14 @@ export default function GroupDetail() {
     e.preventDefault();
     try {
       await api.post(`/api/groups/${id}/settlements`, {
-        paid_by: user.id,
+        paid_by: parseInt(settPaidBy) || user.id,
         paid_to: parseInt(settPaidTo),
         amount: parseFloat(settAmount),
         settlement_date: settDate,
         notes: settNotes
       });
       setShowSettlementForm(false);
-      setSettPaidTo(''); setSettAmount(''); setSettNotes('');
+      setSettPaidTo(''); setSettAmount(''); setSettNotes(''); setSettPaidBy(user?.id || '');
       fetchAll();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to record settlement');
@@ -242,7 +285,12 @@ export default function GroupDetail() {
             <Link to={`/groups/${id}/import`} className="inline-flex items-center px-4 py-2 bg-slate-900 text-white font-bold rounded-lg text-sm hover:bg-slate-800 transition-colors shadow-sm">
               Import CSV
             </Link>
-            <button onClick={() => setShowExpenseForm(true)} className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg text-sm hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
+            <button onClick={() => {
+              const initialSplits = {};
+              activeMembers.forEach(m => initialSplits[m.user_id] = { selected: true, value: '' });
+              setExpSplits(initialSplits);
+              setShowExpenseForm(true);
+            }} className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg text-sm hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
               Expense
             </button>
             <button onClick={() => setShowSettlementForm(true)} className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg text-sm hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
@@ -287,9 +335,11 @@ export default function GroupDetail() {
                 </div>
               ) : (
                 expenses.map((e, i) => {
-                  const dt = new Date(e.expense_date);
+                  const dt = new Date(e.expense_date || e.settlement_date);
+                  const isSettle = e.is_settlement || !!e.paid_to_name;
+                  const desc = e.description || e.notes || 'Settlement';
                   return (
-                    <div key={e.id}
+                    <div key={e.id + (e.paid_to_name ? 's' : 'e')}
                       className="flex items-center justify-between px-5 py-3 bg-white border border-slate-200 rounded-lg hover:border-slate-400 transition-all group"
                       style={{ animation: `slide-up 0.3s ease-out ${i * 30}ms both` }}>
                       <div className="flex items-center gap-4">
@@ -298,11 +348,12 @@ export default function GroupDetail() {
                           <span className="uppercase text-[9px] font-bold text-slate-500">{dt.toLocaleString('default', { month: 'short' })}</span>
                         </div>
                         <div>
-                          <p className="font-bold text-slate-900">{e.description}</p>
+                          <p className="font-bold text-slate-900">{desc}</p>
                           <p className="text-xs font-medium text-slate-500 mt-0.5">
                             Paid by <span className="font-bold text-slate-700">{e.paid_by_name}</span>
-                            <span className="ml-2 font-bold uppercase text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">{e.split_type === 'exact' ? 'unequal' : e.split_type}</span>
-                            {e.is_settlement && <span className="ml-1 font-bold uppercase text-[9px] bg-slate-800 text-white px-1.5 py-0.5 rounded border border-slate-900">Settlement</span>}
+                            {e.paid_to_name && <span> to <span className="font-bold text-slate-700">{e.paid_to_name}</span></span>}
+                            {!e.paid_to_name && <span className="ml-2 font-bold uppercase text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">{e.split_type === 'exact' ? 'unequal' : e.split_type}</span>}
+                            {isSettle && <span className="ml-1 font-bold uppercase text-[9px] bg-slate-800 text-white px-1.5 py-0.5 rounded border border-slate-900">Settlement</span>}
                           </p>
                         </div>
                       </div>
@@ -519,7 +570,35 @@ export default function GroupDetail() {
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">Notes (optional)</label>
                   <input type="text" value={expNotes} onChange={e => setExpNotes(e.target.value)}
                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500/30 transition-all shadow-sm"
-                    placeholder="Any additional notes" />
+                    placeholder="e.g. For dinner party" />
+                </div>
+                
+                {/* Dynamic Split Details Section */}
+                <div className="pt-2 border-t border-slate-200">
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Split Details</label>
+                  <div className="space-y-1 max-h-48 overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin' }}>
+                    {activeMembers.map(m => (
+                      <div key={m.user_id} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                        <label className="flex items-center gap-3 cursor-pointer select-none">
+                          <input type="checkbox" checked={expSplits[m.user_id]?.selected !== false}
+                            onChange={(e) => setExpSplits(prev => ({ ...prev, [m.user_id]: { ...prev[m.user_id], selected: e.target.checked } }))}
+                            className="w-4 h-4 text-slate-800 rounded border-slate-300 focus:ring-slate-500" />
+                          <span className={`font-medium text-sm ${expSplits[m.user_id]?.selected === false ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                            {m.name} {m.user_id === user.id ? '(You)' : ''}
+                          </span>
+                        </label>
+                        {expSplitType !== 'equal' && expSplits[m.user_id]?.selected !== false && (
+                          <div className="flex items-center gap-2" style={{ animation: 'fade-in 0.2s ease-out' }}>
+                            <input type="number" step="0.01" min="0" 
+                              placeholder={expSplitType === 'percentage' ? '%' : expSplitType === 'exact' ? 'Amt' : 'Shares'}
+                              value={expSplits[m.user_id]?.value || ''}
+                              onChange={(e) => setExpSplits(prev => ({ ...prev, [m.user_id]: { ...prev[m.user_id], value: e.target.value } }))}
+                              className="w-20 px-2 py-1.5 text-sm bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 placeholder-slate-400" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl">
@@ -541,15 +620,28 @@ export default function GroupDetail() {
             </div>
             <form onSubmit={handleAddSettlement}>
               <div className="px-7 py-5 space-y-4 bg-slate-50/50">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Paid To</label>
-                  <select required value={settPaidTo} onChange={e => setSettPaidTo(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all shadow-sm">
-                    <option value="">Select member...</option>
-                    {activeMembers.filter(m => m.user_id !== user.id).map(m => (
-                      <option key={m.user_id} value={m.user_id}>{m.name}</option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Paid By</label>
+                    <select value={settPaidBy} onChange={e => setSettPaidBy(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all shadow-sm">
+                      {activeMembers.map(m => (
+                        <option key={m.user_id} value={m.user_id}>
+                          {m.name} {m.user_id === user.id ? '(You)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Paid To</label>
+                    <select required value={settPaidTo} onChange={e => setSettPaidTo(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all shadow-sm">
+                      <option value="">Select member...</option>
+                      {activeMembers.filter(m => m.user_id !== parseInt(settPaidBy || user.id)).map(m => (
+                        <option key={m.user_id} value={m.user_id}>{m.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
