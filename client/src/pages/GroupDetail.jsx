@@ -508,12 +508,12 @@ export default function GroupDetail() {
       {/* Add Expense Modal */}
       {showExpenseForm && (
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" style={{ animation: 'fade-in 0.2s ease-out' }} onClick={() => setShowExpenseForm(false)}>
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden" style={{ animation: 'slide-up 0.3s ease-out' }} onClick={e => e.stopPropagation()}>
-            <div className="px-7 py-5 border-b border-slate-100">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh]" style={{ animation: 'slide-up 0.3s ease-out' }} onClick={e => e.stopPropagation()}>
+            <div className="px-7 py-5 border-b border-slate-100 shrink-0">
               <h2 className="text-lg font-extrabold text-slate-800">Add Expense</h2>
             </div>
-            <form onSubmit={handleAddExpense}>
-              <div className="px-7 py-5 space-y-4 bg-slate-50/50">
+            <form onSubmit={handleAddExpense} className="flex flex-col overflow-hidden">
+              <div className="px-7 py-5 space-y-4 bg-slate-50/50 overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2 sm:col-span-1">
                     <label className="block text-sm font-bold text-slate-700 mb-1.5">Description</label>
@@ -601,7 +601,7 @@ export default function GroupDetail() {
                   </div>
                 </div>
               </div>
-              <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl">
+              <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl shrink-0">
                 <button type="button" onClick={() => setShowExpenseForm(false)} className="px-4 py-2 font-bold text-slate-600 hover:text-slate-900 transition-colors text-sm">Cancel</button>
                 <button type="submit" className="px-4 py-2 font-bold text-white bg-slate-900 rounded-lg shadow-sm hover:bg-slate-800 text-sm transition-colors">Add Expense</button>
               </div>
@@ -613,13 +613,13 @@ export default function GroupDetail() {
       {/* Record Settlement Modal */}
       {showSettlementForm && (
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" style={{ animation: 'fade-in 0.2s ease-out' }} onClick={() => setShowSettlementForm(false)}>
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden" style={{ animation: 'slide-up 0.3s ease-out' }} onClick={e => e.stopPropagation()}>
-            <div className="px-7 py-5 border-b border-slate-100">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh]" style={{ animation: 'slide-up 0.3s ease-out' }} onClick={e => e.stopPropagation()}>
+            <div className="px-7 py-5 border-b border-slate-100 shrink-0">
               <h2 className="text-lg font-extrabold text-slate-800">Record Settlement</h2>
               <p className="text-sm text-slate-500 mt-1">Record a payment you made to settle a debt.</p>
             </div>
-            <form onSubmit={handleAddSettlement}>
-              <div className="px-7 py-5 space-y-4 bg-slate-50/50">
+            <form onSubmit={handleAddSettlement} className="flex flex-col overflow-hidden">
+              <div className="px-7 py-5 space-y-4 bg-slate-50/50 overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1.5">Paid By</label>
@@ -663,7 +663,7 @@ export default function GroupDetail() {
                     placeholder="e.g. Settling March expenses" />
                 </div>
               </div>
-              <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl">
+              <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl shrink-0">
                 <button type="button" onClick={() => setShowSettlementForm(false)} className="px-4 py-2 font-bold text-slate-600 hover:text-slate-900 transition-colors text-sm">Cancel</button>
                 <button type="submit" className="px-4 py-2 font-bold text-white bg-slate-900 rounded-lg shadow-sm hover:bg-slate-800 text-sm transition-colors">Record Payment</button>
               </div>
@@ -675,12 +675,12 @@ export default function GroupDetail() {
       {/* Add Member Modal */}
       {showMemberForm && (
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" style={{ animation: 'fade-in 0.2s ease-out' }} onClick={() => setShowMemberForm(false)}>
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden" style={{ animation: 'slide-up 0.3s ease-out' }} onClick={e => e.stopPropagation()}>
-            <div className="px-7 py-5 border-b border-slate-100">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh]" style={{ animation: 'slide-up 0.3s ease-out' }} onClick={e => e.stopPropagation()}>
+            <div className="px-7 py-5 border-b border-slate-100 shrink-0">
               <h2 className="text-lg font-extrabold text-slate-800">Add Member</h2>
             </div>
-            <form onSubmit={handleAddMember}>
-              <div className="px-7 py-5 space-y-4 bg-slate-50/50">
+            <form onSubmit={handleAddMember} className="flex flex-col overflow-hidden">
+              <div className="px-7 py-5 space-y-4 bg-slate-50/50 overflow-y-auto custom-scrollbar">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">Name</label>
                   <input type="text" required value={memName} onChange={e => setMemName(e.target.value)} autoFocus
@@ -699,7 +699,7 @@ export default function GroupDetail() {
                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all shadow-sm" />
                 </div>
               </div>
-              <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl">
+              <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl shrink-0">
                 <button type="button" onClick={() => setShowMemberForm(false)} className="px-4 py-2 font-bold text-slate-600 hover:text-slate-900 transition-colors text-sm">Cancel</button>
                 <button type="submit" className="px-4 py-2 font-bold text-white bg-slate-900 rounded-lg shadow-sm hover:bg-slate-800 text-sm transition-colors">Add Member</button>
               </div>
@@ -711,15 +711,15 @@ export default function GroupDetail() {
       {/* Edit Group Modal */}
       {showEditGroup && (
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" style={{ animation: 'fade-in 0.2s ease-out' }} onClick={() => setShowEditGroup(false)}>
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden" style={{ animation: 'slide-up 0.3s ease-out' }} onClick={e => e.stopPropagation()}>
-            <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh]" style={{ animation: 'slide-up 0.3s ease-out' }} onClick={e => e.stopPropagation()}>
+            <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center shrink-0">
               <h2 className="text-lg font-extrabold text-slate-800">Group Settings</h2>
               <button type="button" onClick={handleDeleteGroup} className="text-sm font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-colors">
                 Delete Group
               </button>
             </div>
-            <form onSubmit={handleEditGroup}>
-              <div className="px-7 py-5 space-y-4 bg-slate-50/50">
+            <form onSubmit={handleEditGroup} className="flex flex-col overflow-hidden">
+              <div className="px-7 py-5 space-y-4 bg-slate-50/50 overflow-y-auto custom-scrollbar">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">Group Name</label>
                   <input type="text" required value={editGroupName} onChange={e => setEditGroupName(e.target.value)} autoFocus
@@ -733,7 +733,7 @@ export default function GroupDetail() {
                     placeholder="What is this group for?" />
                 </div>
               </div>
-              <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl">
+              <div className="px-6 py-4 bg-white border-t border-slate-200 flex gap-3 justify-end rounded-b-2xl shrink-0">
                 <button type="button" onClick={() => setShowEditGroup(false)} className="px-4 py-2 font-bold text-slate-600 hover:text-slate-900 transition-colors text-sm">Cancel</button>
                 <button type="submit" className="px-4 py-2 font-bold text-white bg-slate-900 rounded-lg shadow-sm hover:bg-slate-800 text-sm transition-colors">Save Changes</button>
               </div>

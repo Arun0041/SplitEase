@@ -13,7 +13,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-slate-50 relative">
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 group">
             <span className="text-xl font-extrabold text-slate-900 tracking-tight">
               SplitEase
@@ -40,7 +40,7 @@ export default function Layout() {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-6 py-10">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <Outlet />
       </main>
     </div>

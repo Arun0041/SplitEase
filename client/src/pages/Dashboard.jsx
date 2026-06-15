@@ -128,15 +128,15 @@ export default function Dashboard() {
           onClick={() => setShowModal(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200"
+            className="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh] border border-slate-200"
             style={{ animation: 'slide-up 0.3s ease-out' }}
             onClick={e => e.stopPropagation()}
           >
-            <div className="px-6 py-5 border-b border-slate-100">
+            <div className="px-6 py-5 border-b border-slate-100 shrink-0">
               <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Create New Group</h2>
             </div>
-            <form onSubmit={handleCreate}>
-              <div className="px-6 py-6 space-y-5 bg-slate-50">
+            <form onSubmit={handleCreate} className="flex flex-col overflow-hidden">
+              <div className="px-6 py-6 space-y-5 bg-slate-50 overflow-y-auto custom-scrollbar">
                 <div>
                   <label className="block text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-2">Group Name</label>
                   <input
@@ -154,7 +154,7 @@ export default function Dashboard() {
                   />
                 </div>
               </div>
-              <div className="px-6 py-4 bg-white border-t border-slate-100 flex gap-3 justify-end">
+              <div className="px-6 py-4 bg-white border-t border-slate-100 flex gap-3 justify-end shrink-0">
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 font-bold text-slate-600 hover:text-slate-900 transition-colors text-sm">Cancel</button>
                 <button type="submit" className="px-4 py-2 font-bold text-white bg-slate-900 rounded-lg hover:bg-slate-800 shadow-sm transition-colors text-sm">Create Group</button>
               </div>
